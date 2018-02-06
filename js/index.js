@@ -12099,23 +12099,30 @@ predictions = [
   ],
 ]
 
-current_sequences = 0
-animation_frames = predictions[0]
-animation_length = animation_frames.length
-current_frame_index = 0
+var current_sequence = 0
+var num_sequences = predictions.length
+var animation_frames = predictions[current_sequence]
+var animation_length = animation_frames.length
+var current_frame_index = 0
 
 var animate = function() {
   requestAnimationFrame(animate)
 
-  current_frame_index += 1
-  current_frame_index = current_frame_index % animation_length // Loop
-
-  luxo_states = animation_frames[current_frame_index]
+  if (current_frame_index == animation_length) {
+    // Pick a random sequence
+    current_sequence = Math.floor(Math.random() * (num_sequences - 1))
+    // In case if length changes
+    animation_frames = predictions[current_sequence]
+    animation_length = animation_frames.length
+    current_frame_index = 0
+  }
 
   // Spread syntax just turns array into comma separate list
+  luxo_states = animation_frames[current_frame_index]
   luxo.setState(...luxo_states)
 
   renderer.render(scene, camera)
+  current_frame_index += 1
 }
 
 animate()
