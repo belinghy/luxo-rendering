@@ -1,3 +1,6 @@
+// Document
+document.title = 'The Hopping Lamp'
+
 // renderer
 var renderer = new THREE.WebGLRenderer()
 renderer.setPixelRatio(window.devicePixelRatio)
@@ -233,7 +236,7 @@ scene.add(floor)
 controls.update()
 
 // Keyframes
-keyframes = [
+all_keyframes = [
   [8, 8, 2, 8, 8, 2, 8, 8, 2, 8, 8, 2, 8, 8, 2, 8, 8, 2, 8, 8, 2, 8, 8, 2],
   [8, 8, 2, 8, 8, 2, 8, 8, 2, 8, 8, 2, 8, 8, 2, 8, 8, 2, 8, 8, 2, 8, 8, 2],
   [8, 8, 2, 8, 8, 2, 8, 8, 2, 8, 8, 2, 8, 8, 2, 8, 8, 2, 8, 8, 2, 8, 8, 2],
@@ -245,6 +248,18 @@ keyframes = [
   [8, 8, 2, 8, 8, 2, 8, 8, 2, 8, 8, 2, 8, 8, 2, 8, 8, 2, 8, 8, 2, 8, 8, 2],
   [8, 8, 2, 8, 8, 2, 8, 8, 2, 8, 8, 2, 8, 8, 2, 8, 8, 2, 8, 8, 2, 8, 8, 2],
 ]
+
+// Put keyframes into absolute indexing
+all_keyframes = all_keyframes.map(keyframes => {
+  // keyframes is a list of "gaps"
+  let acc = 0
+  keyframes = keyframes.map(cur => {
+    acc = acc + cur + 1
+    return acc
+  })
+  keyframes.unshift(0) // Prepend 0 for first keyframe
+  return keyframes
+})
 
 predictions = [
   [
@@ -12102,8 +12117,11 @@ predictions = [
 var current_sequence = 0
 var num_sequences = predictions.length
 var animation_frames = predictions[current_sequence]
+var cur_keyframes = all_keyframes[current_sequence]
 var animation_length = animation_frames.length
 var current_frame_index = 0
+var keyframe_index = 0
+var keyframe_models = []
 
 var animate = function() {
   requestAnimationFrame(animate)
@@ -12113,13 +12131,30 @@ var animate = function() {
     current_sequence = Math.floor(Math.random() * (num_sequences - 1))
     // In case if length changes
     animation_frames = predictions[current_sequence]
+    cur_keyframes = all_keyframes[current_sequence]
     animation_length = animation_frames.length
     current_frame_index = 0
+    keyframe_index = 0
+    // Clean up keyframes from last sequence
+    while (keyframe_models.length > 0) {
+      var frame = keyframe_models.pop()
+      scene.remove(frame.model)
+    }
   }
 
   // Spread syntax just turns array into comma separate list
   luxo_states = animation_frames[current_frame_index]
   luxo.setState(...luxo_states)
+
+  // Draw persistent keyframes
+  if (current_frame_index == cur_keyframes[keyframe_index]) {
+    var keyframe = new LuxoModel()
+    keyframe.setState(...animation_frames[current_frame_index])
+    scene.add(keyframe.model)
+    // Add to list, so we can clean later
+    keyframe_models.push(keyframe)
+    keyframe_index += 1
+  }
 
   renderer.render(scene, camera)
   current_frame_index += 1
