@@ -1,5 +1,18 @@
+// Some global settings
+var SHOW_KEYFRAMES = false
+var CAMERA_SWITCH = 1
+
 // Document
 document.title = 'The Hopping Lamp'
+document.addEventListener('keydown', onDocumentKeyDown, false)
+function onDocumentKeyDown(event) {
+  var keyCode = event.code
+  if (keyCode == 'Digit1') {
+    SHOW_KEYFRAMES = !SHOW_KEYFRAMES
+  } else if (keyCode == 'Digit2') {
+    CAMERA_SWITCH = (CAMERA_SWITCH + 1) % 2
+  }
+}
 
 // renderer
 var renderer = new THREE.WebGLRenderer()
@@ -31,20 +44,43 @@ spotLight.shadow.camera.near = 10
 spotLight.shadow.camera.far = 200
 scene.add(spotLight)
 
-// camera
-camera = new THREE.PerspectiveCamera(
+// cameras
+var perspectiveCamera = new THREE.PerspectiveCamera(
   75,
   window.innerWidth / window.innerHeight,
   1,
   1000
 )
-camera.position.set(10, 2, 15)
+perspectiveCamera.position.set(10, 2, 15)
+var orthoCamera = new THREE.OrthographicCamera(
+  160 / -2,
+  160 / 2,
+  160 / 2,
+  160 / -2,
+  -1000,
+  1000
+)
+orthoCamera.position.set(0, 1, 20)
+orthoCamera.zoom = 5.5
+orthoCamera.updateProjectionMatrix()
+
+var cameras = [perspectiveCamera, orthoCamera]
+camera = cameras[CAMERA_SWITCH]
 
 // camera control
-var controls = new THREE.OrbitControls(camera, renderer.domElement)
-controls.minDistance = 20
-controls.maxDistance = 500
-controls.enablePan = false
+var perspectiveControls = new THREE.OrbitControls(
+  perspectiveCamera,
+  renderer.domElement
+)
+perspectiveControls.minDistance = 20
+perspectiveControls.maxDistance = 500
+perspectiveControls.enablePan = false
+var orthoControls = new THREE.OrbitControls(orthoCamera, renderer.domElement)
+orthoControls.minDistance = 20
+orthoControls.maxDistance = 500
+orthoControls.enablePan = true
+orthoControls.target.set(10, 0, 0)
+var controls = [perspectiveControls, orthoControls]
 
 // Luxo model definition
 class LuxoModel {
@@ -233,7 +269,7 @@ floor.receiveShadow = true
 scene.add(floor)
 
 // init camera control
-controls.update()
+controls.forEach(control => control.update())
 
 // Keyframes
 all_keyframes = [
@@ -12150,12 +12186,15 @@ var animate = function() {
   if (current_frame_index == cur_keyframes[keyframe_index]) {
     var keyframe = new LuxoModel()
     keyframe.setState(...animation_frames[current_frame_index])
-    scene.add(keyframe.model)
-    // Add to list, so we can clean later
-    keyframe_models.push(keyframe)
+    if (SHOW_KEYFRAMES) {
+      scene.add(keyframe.model)
+      // Add to list, so we can clean later
+      keyframe_models.push(keyframe)
+    }
     keyframe_index += 1
   }
 
+  camera = cameras[CAMERA_SWITCH]
   renderer.render(scene, camera)
   current_frame_index += 1
 }
