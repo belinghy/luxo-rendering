@@ -98,13 +98,19 @@ class LuxoModel {
     headHeadRadius,
     headLength,
     materialColour,
-    castShadow
+    castShadow,
+    transparent,
+    opacity
   ) {
     var materialColour = materialColour || 0xabb8cc
+    var transparent = transparent || false
+    var opacity = opacity || 0.5
     var castShadow = castShadow || true
 
     var material = new THREE.MeshPhongMaterial({
       color: materialColour,
+      transparent: transparent,
+      opacity: opacity,
     })
 
     // cylinder: (radius, radius, height, rsegment, hsegment)
@@ -12184,7 +12190,26 @@ var animate = function() {
 
   // Draw persistent keyframes
   if (current_frame_index == cur_keyframes[keyframe_index]) {
-    var keyframe = new LuxoModel()
+    // This is stupid, named arguments?
+    var arguments = [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      false,
+      true,
+      0.5,
+    ]
+    var keyframe = new LuxoModel(...arguments)
     keyframe.setState(...animation_frames[current_frame_index])
     if (SHOW_KEYFRAMES) {
       scene.add(keyframe.model)
