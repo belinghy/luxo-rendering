@@ -51,7 +51,7 @@ var perspectiveCamera = new THREE.PerspectiveCamera(
   1,
   1000
 )
-perspectiveCamera.position.set(10, 2, 15)
+perspectiveCamera.position.set(18, 2, 9)
 var orthoCamera = new THREE.OrthographicCamera(
   160 / -2,
   160 / 2,
