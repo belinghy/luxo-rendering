@@ -6,10 +6,10 @@ var CAMERA_SWITCH = 1
 document.title = 'The Hopping Lamp'
 document.addEventListener('keydown', onDocumentKeyDown, false)
 function onDocumentKeyDown(event) {
-  var keyCode = event.code
-  if (keyCode == 'Digit1') {
+  var keyCode = event.key
+  if (keyCode == '1') {
     SHOW_KEYFRAMES = !SHOW_KEYFRAMES
-  } else if (keyCode == 'Digit2') {
+  } else if (keyCode == '2') {
     CAMERA_SWITCH = (CAMERA_SWITCH + 1) % 2
   }
 }
