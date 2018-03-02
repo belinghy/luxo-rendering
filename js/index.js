@@ -1,5 +1,6 @@
 // Some global settings
 var SHOW_KEYFRAMES = false
+var PAUSE_ANIMATION = false
 var CAMERA_SWITCH = 1
 
 // Document
@@ -11,10 +12,10 @@ function onDocumentKeyDown(event) {
     SHOW_KEYFRAMES = !SHOW_KEYFRAMES
   } else if (keyCode == '2') {
     CAMERA_SWITCH = (CAMERA_SWITCH + 1) % 2
+  } else if (keyCode == '3') {
+    PAUSE_ANIMATION = !PAUSE_ANIMATION
   }
 }
-
-// renderer
 var renderer = new THREE.WebGLRenderer()
 renderer.setPixelRatio(window.devicePixelRatio)
 renderer.setSize(window.innerWidth, window.innerHeight)
@@ -23,6 +24,9 @@ renderer.shadowMap.enabled = true
 renderer.shadowMap.type = THREE.PCFSoftShadowMap
 renderer.gammaInput = true
 renderer.gammaOutput = true
+var effect = new THREE.OutlineEffect(renderer, {
+      defaultColor: new THREE.Color(0x000000)
+});
 
 // scene
 var scene = new THREE.Scene()
@@ -103,15 +107,22 @@ class LuxoModel {
     opacity
   ) {
     var materialColour = materialColour || 0xabb8cc
-    var transparent = transparent || false
-    var opacity = opacity || 0.5
+    var transparent = transparent || true 
+    var opacity = opacity || 0.0
     var castShadow = castShadow || true
 
-    var material = new THREE.MeshPhongMaterial({
-      color: materialColour,
+    var material = new THREE.MeshToonMaterial({
+      color: 0xffffff,
       transparent: transparent,
       opacity: opacity,
     })
+    material.outlineParameters = {
+    	thickNess: 0.01,
+    	color: new THREE.Color( 0x000000 ),
+    	alpha: 1.0,
+    	visible: true,
+    	keepAlive: true
+    };
 
     // cylinder: (radius, radius, height, rsegment, hsegment)
     // Base
@@ -12166,7 +12177,9 @@ var keyframe_index = 0
 var keyframe_models = []
 
 var animate = function() {
-  requestAnimationFrame(animate)
+  if (PAUSE_ANIMATION == false){
+    requestAnimationFrame(animate)
+  }
 
   if (current_frame_index == animation_length) {
     // Pick a random sequence
@@ -12220,7 +12233,7 @@ var animate = function() {
   }
 
   camera = cameras[CAMERA_SWITCH]
-  renderer.render(scene, camera)
+  effect.render(scene, camera)
   current_frame_index += 1
 }
 
