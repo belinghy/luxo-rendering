@@ -12206,7 +12206,7 @@ var animate = function() {
       null, // headBaseRadius,
       null, // headHeadRadius,
       null, // headLength,
-      null, // materialColour,
+      0xff6666, // materialColour,
       false, //castShadow,
       true, // transparent,
       0.5, //opacity
@@ -12226,7 +12226,7 @@ var animate = function() {
       null, // headBaseRadius,
       null, // headHeadRadius,
       null, // headLength,
-      0xff6666, // materialColour,
+      null, // materialColour,
       false, //castShadow,
       true, // transparent,
       0.25, //opacity
