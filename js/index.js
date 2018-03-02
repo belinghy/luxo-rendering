@@ -1,5 +1,7 @@
 // Some global settings
-var SHOW_KEYFRAMES = false
+// 0= No frames, 1= Keyframes only, 2= All frames
+var SHOW_FRAMES = 0
+// 0= Perspective, 1= Orthographic
 var CAMERA_SWITCH = 1
 
 // Document
@@ -8,7 +10,7 @@ document.addEventListener('keydown', onDocumentKeyDown, false)
 function onDocumentKeyDown(event) {
   var keyCode = event.key
   if (keyCode == '1') {
-    SHOW_KEYFRAMES = !SHOW_KEYFRAMES
+    SHOW_FRAMES = (SHOW_FRAMES + 1) % 3
   } else if (keyCode == '2') {
     CAMERA_SWITCH = (CAMERA_SWITCH + 1) % 2
   }
@@ -12163,7 +12165,7 @@ var cur_keyframes = all_keyframes[current_sequence]
 var animation_length = animation_frames.length
 var current_frame_index = 0
 var keyframe_index = 0
-var keyframe_models = []
+var persistentFrame_models = []
 
 var animate = function() {
   requestAnimationFrame(animate)
@@ -12178,8 +12180,8 @@ var animate = function() {
     current_frame_index = 0
     keyframe_index = 0
     // Clean up keyframes from last sequence
-    while (keyframe_models.length > 0) {
-      var frame = keyframe_models.pop()
+    while (persistentFrame_models.length > 0) {
+      var frame = persistentFrame_models.pop()
       scene.remove(frame.model)
     }
   }
@@ -12189,34 +12191,62 @@ var animate = function() {
   luxo.setState(...luxo_states)
 
   // Draw persistent keyframes
+  var arguments = null
   if (current_frame_index == cur_keyframes[keyframe_index]) {
-    // This is stupid, named arguments?
-    var arguments = [
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      false,
-      true,
-      0.5,
+    arguments = [
+      null, // baseRadius,
+      null, // baseHeight,
+      null, // baseAngle,
+      null, // legRadius,
+      null, // legLength,
+      null, // legAngle,
+      null, // torsoRadius,
+      null, // torsoLength,
+      null, // torsoAngle,
+      null, // headBaseRadius,
+      null, // headHeadRadius,
+      null, // headLength,
+      null, // materialColour,
+      false, //castShadow,
+      true, // transparent,
+      0.5, //opacity
     ]
-    var keyframe = new LuxoModel(...arguments)
-    keyframe.setState(...animation_frames[current_frame_index])
-    if (SHOW_KEYFRAMES) {
-      scene.add(keyframe.model)
-      // Add to list, so we can clean later
-      keyframe_models.push(keyframe)
-    }
     keyframe_index += 1
+  } else {
+    arguments = [
+      null, // baseRadius,
+      null, // baseHeight,
+      null, // baseAngle,
+      null, // legRadius,
+      null, // legLength,
+      null, // legAngle,
+      null, // torsoRadius,
+      null, // torsoLength,
+      null, // torsoAngle,
+      null, // headBaseRadius,
+      null, // headHeadRadius,
+      null, // headLength,
+      0xff6666, // materialColour,
+      false, //castShadow,
+      true, // transparent,
+      0.25, //opacity
+    ]
+  }
+  // Javascript apparently doesn't have named arguments
+  // One way to is make constructor to take an object
+  var persistentFrame = new LuxoModel(...arguments)
+  persistentFrame.setState(...animation_frames[current_frame_index])
+
+  if (
+    // Show all
+    SHOW_FRAMES == 2 ||
+    // Show keyframes
+    (SHOW_FRAMES == 1 &&
+      current_frame_index == cur_keyframes[keyframe_index - 1])
+  ) {
+    scene.add(persistentFrame.model)
+    // Add to list, so we can clean later
+    persistentFrame_models.push(persistentFrame)
   }
 
   camera = cameras[CAMERA_SWITCH]
