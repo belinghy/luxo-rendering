@@ -3,6 +3,7 @@
 var SHOW_FRAMES = 0
 // 0= Perspective, 1= Orthographic
 var CAMERA_SWITCH = 1
+var PAUSE_ANIMATION = false
 
 // Document
 document.title = 'The Hopping Lamp'
