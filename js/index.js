@@ -3,6 +3,7 @@
 var SHOW_FRAMES = 0
 // 0= Perspective, 1= Orthographic
 var CAMERA_SWITCH = 1
+var current_frame_index = 0
 
 // Document
 document.title = 'The Hopping Lamp'
@@ -13,6 +14,8 @@ function onDocumentKeyDown(event) {
     SHOW_FRAMES = (SHOW_FRAMES + 1) % 3
   } else if (keyCode == '2') {
     CAMERA_SWITCH = (CAMERA_SWITCH + 1) % 2
+  } else if (keyCode == '3') {
+    current_frame_index +=1
   }
 }
 
@@ -62,7 +65,7 @@ var orthoCamera = new THREE.OrthographicCamera(
   -1000,
   1000
 )
-orthoCamera.position.set(0, 1, 20)
+orthoCamera.position.set(0, 0, 10)
 orthoCamera.zoom = 5.5
 orthoCamera.updateProjectionMatrix()
 
@@ -81,7 +84,7 @@ var orthoControls = new THREE.OrbitControls(orthoCamera, renderer.domElement)
 orthoControls.minDistance = 20
 orthoControls.maxDistance = 500
 orthoControls.enablePan = true
-orthoControls.target.set(10, 0, 0)
+orthoControls.target.set(0, 0, 0)
 var controls = [perspectiveControls, orthoControls]
 
 // objloader
@@ -90,7 +93,7 @@ var objLoader = new THREE.OBJLoader2()
 function loadBaseMesh() {
   return new Promise((resolve, reject) => {
     objLoader.load(
-      'models/base.obj',
+      'models/base2.obj',
       event => {
         resolve(event.detail.loaderRootNode)
       },
@@ -120,7 +123,7 @@ function loadHeadMesh() {
 function loadLegMesh() {
   return new Promise((resolve, reject) => {
     objLoader.load(
-      'models/leg.obj',
+      'models/leg4.obj',
       event => {
         resolve(event.detail.loaderRootNode)
       },
@@ -218,6 +221,9 @@ loadObjModels().then(objs => {
         angle: baseAngle || 0,
       }
       this.base.model = baseMesh.clone()
+      var box = new THREE.Box3().setFromObject( this.base.model );
+      //this.base.radius = box.max
+      //this.base.height = box.min
       this.base.model.material = material
       this.base.model.castShadow = castShadow
 
@@ -228,6 +234,12 @@ loadObjModels().then(objs => {
         angle: (legAngle || 0) + this.base.angle,
       }
       this.leg.model = legMesh.clone()
+      var box = new THREE.Box3().setFromObject( this.leg.model );
+      this.leg.radius = box.min
+      this.leg.length = box.max
+      console.log(box.min)
+      console.log(box.max)
+
       this.leg.model.material = material
       this.leg.model.castShadow = castShadow
 
@@ -256,14 +268,15 @@ loadObjModels().then(objs => {
       this.model = new THREE.Group()
       this.model.add(this.base.model)
       this.model.add(this.leg.model)
-      this.model.add(this.torso.model)
-      this.model.add(this.head.model)
+      //this.model.add(this.torso.model)
+      //this.model.add(this.head.model)
 
       // Call setState
       this.setState(0, 0, 0, 0, 0)
     }
 
     setState(x, y, baseAngle, legAngle, torsoAngle) {
+      console.log(x,y,baseAngle,legAngle,torsoAngle);
       this.base.angle = baseAngle
       this.leg.angle = legAngle + this.base.angle
       this.torso.angle = torsoAngle + this.leg.angle
@@ -275,12 +288,13 @@ loadObjModels().then(objs => {
         y + this.base.height / 2 - this.base.radius * Math.sin(this.base.angle)
 
       // Compute leg object
-      this.leg.x =
-        this.base.x +
-        this.leg.length / 2 * Math.cos(Math.PI / 2 - this.leg.angle)
-      this.leg.y =
-        this.base.y +
-        this.leg.length / 2 * Math.sin(Math.PI / 2 - this.leg.angle)
+      this.leg.x = this.base.x 
+      //this.leg.length/2
+        //this.base.x +
+        //this.leg.length / 2 * Math.cos(Math.PI / 2 - this.leg.angle)
+      this.leg.y = this.base.y + this.leg.length/2
+        //this.base.y +
+        //this.leg.length / 2 * Math.sin(Math.PI / 2 - this.leg.angle)
 
       // Compute torso object
       this.torso.x =
@@ -314,7 +328,8 @@ loadObjModels().then(objs => {
       // Leg
       this.leg.model.position.x = this.leg.x
       this.leg.model.position.y = this.leg.y
-      this.leg.model.rotation.z = -this.leg.angle
+      this.leg.model.rotation.z = this.leg.angle
+      console.log(this.leg.x,this.leg.y,this.leg.angle)
 
       // Torso
       this.torso.model.position.x = this.torso.x
@@ -12234,7 +12249,6 @@ loadObjModels().then(objs => {
   var animation_frames = predictions[current_sequence]
   var cur_keyframes = all_keyframes[current_sequence]
   var animation_length = animation_frames.length
-  var current_frame_index = 0
   var keyframe_index = 0
   var persistentFrame_models = []
 
@@ -12322,9 +12336,8 @@ loadObjModels().then(objs => {
 
     camera = cameras[CAMERA_SWITCH]
     renderer.render(scene, camera)
-    current_frame_index += 1
+    //current_frame_index += 1
   }
-
-  animate()
-  // renderer.render(scene, camera)
+  animate();
+  //renderer.render(scene, camera)
 })
