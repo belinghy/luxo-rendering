@@ -153,28 +153,31 @@ async function loadObjModels() {
   model = await loadLegMesh()
   model = await loadNeckMesh()
   model = await loadHeadMesh()
+
+  model.children.map(mesh => {
+    // mesh.rotation.y = -4 * Math.PI / 6
+    mesh.geometry = new THREE.Geometry().fromBufferGeometry(mesh.geometry)
+    mesh.geometry.normalize()
+  })
+
   return model
 }
 
 loadObjModels().then(objs => {
   var baseMesh = objs.children[0]
-  baseMesh.geometry = new THREE.Geometry().fromBufferGeometry(baseMesh.geometry)
   var legMesh = objs.children[1]
-  legMesh.geometry = new THREE.Geometry().fromBufferGeometry(legMesh.geometry)
   var neckMesh = objs.children[2]
-  neckMesh.geometry = new THREE.Geometry().fromBufferGeometry(neckMesh.geometry)
   var headMesh = objs.children[3]
-  headMesh.geometry = new THREE.Geometry().fromBufferGeometry(headMesh.geometry)
-
-  var objScale = 0.004
-  baseMesh.scale.set(objScale, objScale, objScale)
-  baseMesh.rotation.y = -4 * Math.PI / 6
-  headMesh.scale.set(objScale, objScale, objScale)
-  headMesh.rotation.y = -4 * Math.PI / 6
-  legMesh.scale.set(objScale, objScale, objScale)
-  legMesh.rotation.y = -4 * Math.PI / 6
-  neckMesh.scale.set(objScale, objScale, objScale)
-  neckMesh.rotation.y = -4 * Math.PI / 6
+  // var objScale = 1
+  // var objRotation = -4 * Math.PI / 6
+  // baseMesh.scale.set(objScale, objScale, objScale)
+  // baseMesh.rotation.y = objRotation
+  // headMesh.scale.set(objScale, objScale, objScale)
+  // headMesh.rotation.y = objRotation
+  // legMesh.scale.set(0.6, 0.6, 0.6)
+  // legMesh.rotation.y = objRotation
+  // neckMesh.scale.set(0.6, 0.6, 0.6)
+  // neckMesh.rotation.y = objRotation
 
   // Luxo model definition
   class LuxoModel {
@@ -323,11 +326,11 @@ loadObjModels().then(objs => {
       this.head.model.position.y = this.head.y
       this.head.model.rotation.z = -this.head.angle
 
-      console.log('base')
-      console.log(this.base.model.position)
-      console.log(this.leg.model.position)
-      console.log(this.torso.model.position)
-      console.log(this.head.model.position)
+      // console.log('base')
+      // console.log(this.base)
+      // console.log(this.leg)
+      // console.log(this.torso)
+      // console.log(this.head)
     }
   }
 
@@ -12256,7 +12259,7 @@ loadObjModels().then(objs => {
 
     // Spread syntax just turns array into comma separate list
     luxo_states = animation_frames[current_frame_index]
-    // luxo.setState(...luxo_states)
+    luxo.setState(...luxo_states)
 
     // Draw persistent keyframes
     var luxo_arguments = null
@@ -12319,8 +12322,9 @@ loadObjModels().then(objs => {
 
     camera = cameras[CAMERA_SWITCH]
     renderer.render(scene, camera)
-    // current_frame_index += 1
+    current_frame_index += 1
   }
 
   animate()
+  // renderer.render(scene, camera)
 })
