@@ -26,9 +26,6 @@ renderer.shadowMap.enabled = true
 renderer.shadowMap.type = THREE.PCFSoftShadowMap
 renderer.gammaInput = true
 renderer.gammaOutput = true
-var effect = new THREE.OutlineEffect(renderer, {
-      defaultColor: new THREE.Color(0x000000)
-});
 
 // scene
 var scene = new THREE.Scene()
@@ -67,7 +64,7 @@ var orthoCamera = new THREE.OrthographicCamera(
   1000
 )
 orthoCamera.position.set(0, 1, 20)
-orthoCamera.zoom = 5.5
+orthoCamera.zoom = 10.0
 orthoCamera.updateProjectionMatrix()
 
 var cameras = [perspectiveCamera, orthoCamera]
@@ -110,22 +107,14 @@ class LuxoModel {
   ) {
     var materialColour = materialColour || 0xabb8cc
     var transparent = transparent || true 
-    var opacity = opacity || 0.0
+    var opacity = opacity || 1.0
     var castShadow = castShadow || true
 
-    var material = new THREE.MeshToonMaterial({
+    var material = new THREE.MeshBasicMaterial({
       color: 0xffffff,
-      transparent: transparent,
-      opacity: opacity,
+      transparent: true,
+      opacity: 1.0,
     })
-    material.outlineParameters = {
-    	thickNess: 0.01,
-    	color: new THREE.Color( 0x000000 ),
-    	alpha: 1.0,
-    	visible: true,
-    	keepAlive: true
-    };
-
     // cylinder: (radius, radius, height, rsegment, hsegment)
     // Base
     this.base = {
@@ -206,8 +195,8 @@ class LuxoModel {
     this.model.add(this.leg.model)
     this.model.add(this.torso.model)
     this.model.add(this.head.model)
-
     // Call setState
+    this.line = new THREE.Group()
     this.setState(0, 0, 0, 0, 0)
   }
 
@@ -257,6 +246,8 @@ class LuxoModel {
     // Rotation is reversed
     this.base.model.rotation.z = -this.base.angle
 
+
+
     // Leg
     this.leg.model.position.x = this.leg.x
     this.leg.model.position.y = this.leg.y
@@ -271,12 +262,38 @@ class LuxoModel {
     this.head.model.position.x = this.head.x
     this.head.model.position.y = this.head.y
     this.head.model.rotation.z = -this.head.angle
+
+    this.line = new THREE.Group();
+
+    var geo = new THREE.Geometry()
+    geo.copy(this.base.model.geometry) 
+    geo.applyMatrix(this.base.model.matrix)
+    var edges = new THREE.EdgesGeometry(geo);
+    this.line.add(new THREE.LineSegments(edges, new THREE.LineBasicMaterial( { color: 0x000000, linewidth: 5 } ) ))
+
+    //var geo2 = new THREE.Geometry()
+    geo.copy(this.head.model.geometry) 
+    geo.applyMatrix(this.head.model.matrix)
+    edges = new THREE.EdgesGeometry(geo);
+    this.line.add(new THREE.LineSegments(edges, new THREE.LineBasicMaterial( { color: 0x000000, linewidth: 5 } ) ))
+
+    geo.copy(this.torso.model.geometry) 
+    geo.applyMatrix(this.torso.model.matrix)
+    edges = new THREE.EdgesGeometry(geo);
+    this.line.add(new THREE.LineSegments(edges, new THREE.LineBasicMaterial( { color: 0x000000, linewidth: 5 } ) ))
+
+    geo.copy(this.leg.model.geometry) 
+    geo.applyMatrix(this.leg.model.matrix)
+    edges = new THREE.EdgesGeometry(geo);
+    this.line.add(new THREE.LineSegments(edges, new THREE.LineBasicMaterial( { color: 0x000000, linewidth: 5 } ) ))
+
   }
 }
 
 // Adding luxo to scene
 var luxo = new LuxoModel()
 scene.add(luxo.model)
+scene.add(luxo.line)
 
 // Adding floor to scene
 var floor = new THREE.Mesh(
@@ -12104,7 +12121,7 @@ predictions = [
       0.5203959941864014,
     ],
     [
-      7.170404434204102,
+       7.170404434204102,
       0.6257064938545227,
       -0.045304954051971436,
       -0.5915622115135193,
@@ -12201,7 +12218,9 @@ var animate = function() {
 
   // Spread syntax just turns array into comma separate list
   luxo_states = animation_frames[current_frame_index]
+  scene.remove(luxo.line)
   luxo.setState(...luxo_states)
+  scene.add(luxo.line)
 
   // Draw persistent keyframes
   var arguments = null
@@ -12222,7 +12241,7 @@ var animate = function() {
       0xff6666, // materialColour,
       false, //castShadow,
       true, // transparent,
-      0.5, //opacity
+      0.0, //opacity
     ]
     keyframe_index += 1
   } else {
@@ -12242,7 +12261,7 @@ var animate = function() {
       null, // materialColour,
       false, //castShadow,
       true, // transparent,
-      0.25, //opacity
+      0.0, //opacity
     ]
   }
   // Javascript apparently doesn't have named arguments
@@ -12263,7 +12282,7 @@ var animate = function() {
   }
 
   camera = cameras[CAMERA_SWITCH]
-  effect.render(scene, camera)
+  renderer.render(scene, camera)
   current_frame_index += 1
 }
 
