@@ -3,6 +3,7 @@
 var SHOW_FRAMES = 0
 // 0= Perspective, 1= Orthographic
 var CAMERA_SWITCH = 1
+var MANUAL = false
 var current_frame_index = 0
 
 // Document
@@ -14,8 +15,10 @@ function onDocumentKeyDown(event) {
     SHOW_FRAMES = (SHOW_FRAMES + 1) % 3
   } else if (keyCode == '2') {
     CAMERA_SWITCH = (CAMERA_SWITCH + 1) % 2
-  } else if (keyCode == '3') {
+  } else if (keyCode == '3' && MANUAL == true) {
     current_frame_index +=1
+  } else if (keyCode == 'm') {
+      MANUAL = true
   }
 }
 
@@ -57,16 +60,18 @@ var perspectiveCamera = new THREE.PerspectiveCamera(
   1000
 )
 perspectiveCamera.position.set(18, 2, 9)
+var w = window.innerWidth;
+var h = window.innerHeight;
 var orthoCamera = new THREE.OrthographicCamera(
-  160 / -2,
-  160 / 2,
-  160 / 2,
-  160 / -2,
+  w / -2,
+  w / 2,
+  h / 2,
+  h / -2,
   -1000,
   1000
 )
 orthoCamera.position.set(0, 0, 10)
-orthoCamera.zoom = 5.5
+orthoCamera.zoom = 30
 orthoCamera.updateProjectionMatrix()
 
 var cameras = [perspectiveCamera, orthoCamera]
@@ -93,7 +98,7 @@ var objLoader = new THREE.OBJLoader2()
 function loadBaseMesh() {
   return new Promise((resolve, reject) => {
     objLoader.load(
-      'models/base2.obj',
+      'models/base4.obj',
       event => {
         resolve(event.detail.loaderRootNode)
       },
@@ -108,7 +113,7 @@ function loadBaseMesh() {
 function loadHeadMesh() {
   return new Promise((resolve, reject) => {
     objLoader.load(
-      'models/head.obj',
+      'models/head4.obj',
       event => {
         resolve(event.detail.loaderRootNode)
       },
@@ -138,7 +143,7 @@ function loadLegMesh() {
 function loadNeckMesh() {
   return new Promise((resolve, reject) => {
     objLoader.load(
-      'models/neck.obj',
+      'models/neck4.obj',
       event => {
         resolve(event.detail.loaderRootNode)
       },
@@ -158,9 +163,8 @@ async function loadObjModels() {
   model = await loadHeadMesh()
 
   model.children.map(mesh => {
-    // mesh.rotation.y = -4 * Math.PI / 6
     mesh.geometry = new THREE.Geometry().fromBufferGeometry(mesh.geometry)
-    mesh.geometry.normalize()
+    mesh.geometry.center()
   })
 
   return model
@@ -171,6 +175,24 @@ loadObjModels().then(objs => {
   var legMesh = objs.children[1]
   var neckMesh = objs.children[2]
   var headMesh = objs.children[3]
+  baseMesh.geometry.computeBoundingSphere()
+  mscale = 1.0/baseMesh.geometry.boundingSphere.radius
+  console.log(mscale)
+  baseMesh.geometry.scale(mscale,mscale,mscale)
+  legMesh.geometry.scale(mscale,mscale,mscale)
+  legMesh.geometry.rotateY(-Math.PI/2)
+  neckMesh.geometry.scale(mscale,mscale,mscale)
+  neckMesh.geometry.rotateY(-Math.PI/2)
+  var bb = new THREE.Box3().setFromObject( neckMesh );
+  var ss = bb.getSize()
+  neckMesh.geometry.translate(0,ss.y/2.0,0)
+  headMesh.geometry.scale(mscale,mscale,mscale)
+  var bb2 = new THREE.Box3().setFromObject(headMesh);
+  var ss2 = bb2.getSize()
+  console.log(ss2)
+  headMesh.geometry.rotateY(-Math.PI/2)
+  headMesh.geometry.rotateZ(-Math.PI/2)
+  headMesh.geometry.translate(0,ss.y/2,0)
   // var objScale = 1
   // var objRotation = -4 * Math.PI / 6
   // baseMesh.scale.set(objScale, objScale, objScale)
@@ -212,7 +234,6 @@ loadObjModels().then(objs => {
         transparent: transparent,
         opacity: opacity,
       })
-
       // cylinder: (radius, radius, height, rsegment, hsegment)
       // Base
       this.base = {
@@ -222,8 +243,10 @@ loadObjModels().then(objs => {
       }
       this.base.model = baseMesh.clone()
       var box = new THREE.Box3().setFromObject( this.base.model );
-      //this.base.radius = box.max
-      //this.base.height = box.min
+      var size = box.getSize()
+      this.base.radius = size.x 
+      this.base.height = size.y
+
       this.base.model.material = material
       this.base.model.castShadow = castShadow
 
@@ -231,14 +254,13 @@ loadObjModels().then(objs => {
       this.leg = {
         radius: legRadius || 0.1,
         length: legLength || 0.6,
-        angle: (legAngle || 0) + this.base.angle,
+        angle: legAngle || 0,
       }
       this.leg.model = legMesh.clone()
-      var box = new THREE.Box3().setFromObject( this.leg.model );
-      this.leg.radius = box.min
-      this.leg.length = box.max
-      console.log(box.min)
-      console.log(box.max)
+      box = new THREE.Box3().setFromObject( this.leg.model );
+      size = box.getSize()
+      this.leg.radius = size.x
+      this.leg.length = size.y
 
       this.leg.model.material = material
       this.leg.model.castShadow = castShadow
@@ -247,9 +269,15 @@ loadObjModels().then(objs => {
       this.torso = {
         radius: torsoRadius || 0.1,
         length: torsoRadius || 0.6,
-        angle: (torsoAngle || 0) + this.leg.angle,
+        angle: torsoAngle || 0,
       }
+
       this.torso.model = neckMesh.clone()
+      box = new THREE.Box3().setFromObject( this.torso.model );
+      size = box.getSize()
+      this.torso.radius = size.x
+      this.torso.length = size.y
+
       this.torso.model.material = material
       this.torso.model.castShadow = castShadow
 
@@ -261,40 +289,37 @@ loadObjModels().then(objs => {
         angle: this.torso.angle + Math.PI / 2,
       }
       this.head.model = headMesh.clone()
+      box = new THREE.Box3().setFromObject( this.head.model );
+      size = box.getSize()
+      this.head.radius = size.x
+      this.head.length = size.y
+
       this.head.model.material = material
       this.head.model.castShadow = castShadow
 
       // Overall model
       this.model = new THREE.Group()
+      this.torso.model.add(this.head.model)
+      this.leg.model.add(this.torso.model)
+      this.base.model.add(this.leg.model)
       this.model.add(this.base.model)
-      this.model.add(this.leg.model)
-      //this.model.add(this.torso.model)
-      //this.model.add(this.head.model)
 
       // Call setState
       this.setState(0, 0, 0, 0, 0)
     }
 
     setState(x, y, baseAngle, legAngle, torsoAngle) {
-      console.log(x,y,baseAngle,legAngle,torsoAngle);
+      //console.log(x,y,baseAngle,legAngle,torsoAngle);
       this.base.angle = baseAngle
-      this.leg.angle = legAngle + this.base.angle
-      this.torso.angle = torsoAngle + this.leg.angle
-      this.head.angle = this.torso.angle + Math.PI / 2
+      //this.leg.angle = legAngle + this.base.angle
+      this.leg.angle = legAngle
+      this.torso.angle = torsoAngle
+      this.head.angle = Math.PI / 2
 
       // Compute base object
       this.base.x = x + this.base.radius * Math.cos(this.base.angle)
       this.base.y =
         y + this.base.height / 2 - this.base.radius * Math.sin(this.base.angle)
-
-      // Compute leg object
-      this.leg.x = this.base.x 
-      //this.leg.length/2
-        //this.base.x +
-        //this.leg.length / 2 * Math.cos(Math.PI / 2 - this.leg.angle)
-      this.leg.y = this.base.y + this.leg.length/2
-        //this.base.y +
-        //this.leg.length / 2 * Math.sin(Math.PI / 2 - this.leg.angle)
 
       // Compute torso object
       this.torso.x =
@@ -326,26 +351,24 @@ loadObjModels().then(objs => {
       this.base.model.rotation.z = -this.base.angle
 
       // Leg
-      this.leg.model.position.x = this.leg.x
-      this.leg.model.position.y = this.leg.y
-      this.leg.model.rotation.z = this.leg.angle
-      console.log(this.leg.x,this.leg.y,this.leg.angle)
+      this.leg.model.matrix.identity() 
+      this.leg.model.applyMatrix( new THREE.Matrix4().makeTranslation( 0, this.leg.length/2, 0 ) );
+      this.leg.model.applyMatrix( new THREE.Matrix4().makeRotationZ(-this.leg.angle));
 
       // Torso
-      this.torso.model.position.x = this.torso.x
-      this.torso.model.position.y = this.torso.y
-      this.torso.model.rotation.z = -this.torso.angle
+      this.torso.model.matrix.identity() 
+      var rotation = new THREE.Matrix4().makeRotationZ(-this.torso.angle);
+      var t1 = new THREE.Matrix4().makeTranslation( 0, this.leg.length/2, 0 );
+      var tt = t1.multiply(rotation)
+      this.torso.model.applyMatrix(tt);
 
       // Head
-      this.head.model.position.x = this.head.x
-      this.head.model.position.y = this.head.y
-      this.head.model.rotation.z = -this.head.angle
+      this.head.model.matrix.identity() 
+      var rotation = new THREE.Matrix4().makeRotationZ(-this.head.angle);
+      var t1 = new THREE.Matrix4().makeTranslation( 0,this.torso.length, 0 );
+      var tt = t1.multiply(rotation)
+      this.head.model.applyMatrix(tt);
 
-      // console.log('base')
-      // console.log(this.base)
-      // console.log(this.leg)
-      // console.log(this.torso)
-      // console.log(this.head)
     }
   }
 
@@ -12336,7 +12359,9 @@ loadObjModels().then(objs => {
 
     camera = cameras[CAMERA_SWITCH]
     renderer.render(scene, camera)
-    //current_frame_index += 1
+    if (MANUAL == false){
+        current_frame_index += 1
+    }
   }
   animate();
   //renderer.render(scene, camera)
