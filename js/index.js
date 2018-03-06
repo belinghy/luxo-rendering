@@ -15,10 +15,10 @@ function onDocumentKeyDown(event) {
     SHOW_FRAMES = (SHOW_FRAMES + 1) % 3
   } else if (keyCode == '2') {
     CAMERA_SWITCH = (CAMERA_SWITCH + 1) % 2
-  } else if (keyCode == '3' && MANUAL == true) {
-    current_frame_index +=1
-  } else if (keyCode == 'm') {
-      MANUAL = true
+  } else if (MANUAL == true && keyCode == 'n') {
+    current_frame_index += 1
+  } else if (keyCode == ' ') {
+    MANUAL = !MANUAL
   }
 }
 
@@ -60,8 +60,8 @@ var perspectiveCamera = new THREE.PerspectiveCamera(
   1000
 )
 perspectiveCamera.position.set(18, 2, 9)
-var w = window.innerWidth;
-var h = window.innerHeight;
+var w = window.innerWidth
+var h = window.innerHeight
 var orthoCamera = new THREE.OrthographicCamera(
   w / -2,
   w / 2,
@@ -95,55 +95,10 @@ var controls = [perspectiveControls, orthoControls]
 // objloader
 var objLoader = new THREE.OBJLoader2()
 
-function loadBaseMesh() {
+function loadObjMesh(file) {
   return new Promise((resolve, reject) => {
     objLoader.load(
-      'models/base4.obj',
-      event => {
-        resolve(event.detail.loaderRootNode)
-      },
-      null,
-      null,
-      null,
-      false
-    )
-  })
-}
-
-function loadHeadMesh() {
-  return new Promise((resolve, reject) => {
-    objLoader.load(
-      'models/head4.obj',
-      event => {
-        resolve(event.detail.loaderRootNode)
-      },
-      null,
-      null,
-      null,
-      false
-    )
-  })
-}
-
-function loadLegMesh() {
-  return new Promise((resolve, reject) => {
-    objLoader.load(
-      'models/leg4.obj',
-      event => {
-        resolve(event.detail.loaderRootNode)
-      },
-      null,
-      null,
-      null,
-      false
-    )
-  })
-}
-
-function loadNeckMesh() {
-  return new Promise((resolve, reject) => {
-    objLoader.load(
-      'models/neck4.obj',
+      file,
       event => {
         resolve(event.detail.loaderRootNode)
       },
@@ -157,10 +112,12 @@ function loadNeckMesh() {
 
 async function loadObjModels() {
   var model
-  model = await loadBaseMesh()
-  model = await loadLegMesh()
-  model = await loadNeckMesh()
-  model = await loadHeadMesh()
+  var basepath = 'models/'
+  var files = ['base4.obj', 'leg4.obj', 'neck4.obj', 'head4.obj']
+
+  for (var i = 0; i < files.length; i++) {
+    model = await loadObjMesh(basepath + files[i])
+  }
 
   model.children.map(mesh => {
     mesh.geometry = new THREE.Geometry().fromBufferGeometry(mesh.geometry)
@@ -175,34 +132,26 @@ loadObjModels().then(objs => {
   var legMesh = objs.children[1]
   var neckMesh = objs.children[2]
   var headMesh = objs.children[3]
+
   baseMesh.geometry.computeBoundingSphere()
-  mscale = 1.0/baseMesh.geometry.boundingSphere.radius
-  console.log(mscale)
-  baseMesh.geometry.scale(mscale,mscale,mscale)
-  legMesh.geometry.scale(mscale,mscale,mscale)
-  legMesh.geometry.rotateY(-Math.PI/2)
-  neckMesh.geometry.scale(mscale,mscale,mscale)
-  neckMesh.geometry.rotateY(-Math.PI/2)
-  var bb = new THREE.Box3().setFromObject( neckMesh );
+  mscale = 1.0 / baseMesh.geometry.boundingSphere.radius
+
+  baseMesh.geometry.scale(mscale, mscale, mscale)
+  legMesh.geometry.scale(mscale, mscale, mscale)
+  legMesh.geometry.rotateY(-Math.PI / 2)
+
+  neckMesh.geometry.scale(mscale, mscale, mscale)
+  neckMesh.geometry.rotateY(-Math.PI / 2)
+  var bb = new THREE.Box3().setFromObject(neckMesh)
   var ss = bb.getSize()
-  neckMesh.geometry.translate(0,ss.y/2.0,0)
-  headMesh.geometry.scale(mscale,mscale,mscale)
-  var bb2 = new THREE.Box3().setFromObject(headMesh);
+  neckMesh.geometry.translate(0, ss.y / 2.0, 0)
+
+  headMesh.geometry.scale(mscale, mscale, mscale)
+  var bb2 = new THREE.Box3().setFromObject(headMesh)
   var ss2 = bb2.getSize()
-  console.log(ss2)
-  headMesh.geometry.rotateY(-Math.PI/2)
-  headMesh.geometry.rotateZ(-Math.PI/2)
-  headMesh.geometry.translate(0,ss.y/2,0)
-  // var objScale = 1
-  // var objRotation = -4 * Math.PI / 6
-  // baseMesh.scale.set(objScale, objScale, objScale)
-  // baseMesh.rotation.y = objRotation
-  // headMesh.scale.set(objScale, objScale, objScale)
-  // headMesh.rotation.y = objRotation
-  // legMesh.scale.set(0.6, 0.6, 0.6)
-  // legMesh.rotation.y = objRotation
-  // neckMesh.scale.set(0.6, 0.6, 0.6)
-  // neckMesh.rotation.y = objRotation
+  headMesh.geometry.rotateY(-Math.PI / 2)
+  headMesh.geometry.rotateZ(-Math.PI / 2)
+  headMesh.geometry.translate(0, ss.y / 2, 0)
 
   // Luxo model definition
   class LuxoModel {
@@ -242,9 +191,9 @@ loadObjModels().then(objs => {
         angle: baseAngle || 0,
       }
       this.base.model = baseMesh.clone()
-      var box = new THREE.Box3().setFromObject( this.base.model );
+      var box = new THREE.Box3().setFromObject(this.base.model)
       var size = box.getSize()
-      this.base.radius = size.x 
+      this.base.radius = size.x
       this.base.height = size.y
 
       this.base.model.material = material
@@ -257,7 +206,7 @@ loadObjModels().then(objs => {
         angle: legAngle || 0,
       }
       this.leg.model = legMesh.clone()
-      box = new THREE.Box3().setFromObject( this.leg.model );
+      box = new THREE.Box3().setFromObject(this.leg.model)
       size = box.getSize()
       this.leg.radius = size.x
       this.leg.length = size.y
@@ -273,7 +222,7 @@ loadObjModels().then(objs => {
       }
 
       this.torso.model = neckMesh.clone()
-      box = new THREE.Box3().setFromObject( this.torso.model );
+      box = new THREE.Box3().setFromObject(this.torso.model)
       size = box.getSize()
       this.torso.radius = size.x
       this.torso.length = size.y
@@ -289,7 +238,7 @@ loadObjModels().then(objs => {
         angle: this.torso.angle + Math.PI / 2,
       }
       this.head.model = headMesh.clone()
-      box = new THREE.Box3().setFromObject( this.head.model );
+      box = new THREE.Box3().setFromObject(this.head.model)
       size = box.getSize()
       this.head.radius = size.x
       this.head.length = size.y
@@ -351,24 +300,27 @@ loadObjModels().then(objs => {
       this.base.model.rotation.z = -this.base.angle
 
       // Leg
-      this.leg.model.matrix.identity() 
-      this.leg.model.applyMatrix( new THREE.Matrix4().makeTranslation( 0, this.leg.length/2, 0 ) );
-      this.leg.model.applyMatrix( new THREE.Matrix4().makeRotationZ(-this.leg.angle));
+      this.leg.model.matrix.identity()
+      this.leg.model.applyMatrix(
+        new THREE.Matrix4().makeTranslation(0, this.leg.length / 2, 0)
+      )
+      this.leg.model.applyMatrix(
+        new THREE.Matrix4().makeRotationZ(-this.leg.angle)
+      )
 
       // Torso
-      this.torso.model.matrix.identity() 
-      var rotation = new THREE.Matrix4().makeRotationZ(-this.torso.angle);
-      var t1 = new THREE.Matrix4().makeTranslation( 0, this.leg.length/2, 0 );
+      this.torso.model.matrix.identity()
+      var rotation = new THREE.Matrix4().makeRotationZ(-this.torso.angle)
+      var t1 = new THREE.Matrix4().makeTranslation(0, this.leg.length / 2, 0)
       var tt = t1.multiply(rotation)
-      this.torso.model.applyMatrix(tt);
+      this.torso.model.applyMatrix(tt)
 
       // Head
-      this.head.model.matrix.identity() 
-      var rotation = new THREE.Matrix4().makeRotationZ(-this.head.angle);
-      var t1 = new THREE.Matrix4().makeTranslation( 0,this.torso.length, 0 );
+      this.head.model.matrix.identity()
+      var rotation = new THREE.Matrix4().makeRotationZ(-this.head.angle)
+      var t1 = new THREE.Matrix4().makeTranslation(0, this.torso.length, 0)
       var tt = t1.multiply(rotation)
-      this.head.model.applyMatrix(tt);
-
+      this.head.model.applyMatrix(tt)
     }
   }
 
@@ -12359,10 +12311,9 @@ loadObjModels().then(objs => {
 
     camera = cameras[CAMERA_SWITCH]
     renderer.render(scene, camera)
-    if (MANUAL == false){
-        current_frame_index += 1
+    if (MANUAL == false) {
+      current_frame_index += 1
     }
   }
-  animate();
-  //renderer.render(scene, camera)
+  animate()
 })
