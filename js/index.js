@@ -21,10 +21,11 @@ function onDocumentKeyDown(event) {
     MANUAL = !MANUAL
   }
 }
+
+// renderer
 var renderer = new THREE.WebGLRenderer()
 renderer.setPixelRatio(window.devicePixelRatio)
 renderer.setSize(window.innerWidth, window.innerHeight)
-document.body.appendChild(renderer.domElement)
 renderer.shadowMap.enabled = true
 renderer.shadowMap.type = THREE.PCFSoftShadowMap
 renderer.gammaInput = true
@@ -94,7 +95,23 @@ orthoControls.target.set(0, 0, 0)
 var controls = [perspectiveControls, orthoControls]
 
 // objloader
-var objLoader = new THREE.OBJLoader2()
+var progressWrapper = document.createElement('div')
+var progressBar = document.createElement('div')
+progressWrapper.className = 'loader-progress-wrapper'
+progressBar.className = 'loader-progress-progress'
+progressBar.style.width = '0%'
+progressWrapper.appendChild(progressBar)
+
+var manager = new THREE.LoadingManager()
+manager.onStart = function(url, itemsLoaded, itemsTotal) {
+  document.body.appendChild(progressWrapper)
+}
+
+manager.onError = function(url) {
+  console.log('There was an error loading ' + url)
+}
+
+var objLoader = new THREE.OBJLoader2(manager)
 
 function loadObjMesh(file) {
   return new Promise((resolve, reject) => {
@@ -116,9 +133,17 @@ async function loadObjModels() {
   var basepath = 'models/'
   var files = ['base4.obj', 'leg4.obj', 'neck4.obj', 'head4.obj']
 
+  manager.onProgress = function(url, itemsLoaded, itemsTotal) {
+    progressBar.style.width = itemsLoaded / files.length * 100 + '%'
+  }
+
   for (var i = 0; i < files.length; i++) {
     model = await loadObjMesh(basepath + files[i])
   }
+
+  // remove progress bar and render canvas
+  document.body.removeChild(progressWrapper)
+  document.body.appendChild(renderer.domElement)
 
   model.children.map(mesh => {
     mesh.geometry = new THREE.Geometry().fromBufferGeometry(mesh.geometry)
