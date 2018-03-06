@@ -175,11 +175,11 @@ loadObjModels().then(objs => {
       opacity
     ) {
       var materialColour = materialColour || 0xabb8cc
-      var transparent = transparent || true
+      var transparent = transparent || false
       var opacity = opacity || 0.0
       var castShadow = castShadow || true
 
-      var material = new THREE.MeshPhongMaterial({
+      var material = new THREE.MeshToonMaterial({
         color: materialColour,
         transparent: transparent,
         opacity: opacity,
