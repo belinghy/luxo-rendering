@@ -7,7 +7,6 @@ var MANUAL = false
 var current_frame_index = 0
 
 // Document
-document.title = 'The Hopping Lamp'
 document.addEventListener('keydown', onDocumentKeyDown, false)
 function onDocumentKeyDown(event) {
   var keyCode = event.key
@@ -365,7 +364,7 @@ loadObjModels().then(objs => {
   // Adding floor to scene
   var floor = new THREE.Mesh(
     new THREE.BoxGeometry(2000, 1, 2000),
-    new THREE.MeshPhongMaterial({ color: 0x808080, dithering: true })
+    new THREE.MeshToonMaterial({ color: 0x808080, dithering: true })
   )
   floor.position.set(0, -0.5, 0)
   floor.receiveShadow = true
