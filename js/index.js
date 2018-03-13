@@ -1,11 +1,128 @@
 // Some global settings
 // 0= No frames, 1= Keyframes only, 2= All frames
-var SHOW_FRAMES = 0
+var SHOW_FRAMES =2 
 // 0= Perspective, 1= Orthographic
 var CAMERA_SWITCH = 1
 var MANUAL = false
 var SHOW_OUTLINE = false
+var STATIC = true
 var current_frame_index = 0
+var animation_length = 1 
+var current_sequence = 0
+var num_sequences  
+var predictions  
+var animation_frames 
+var cur_keyframes
+var all_keyframes
+var luxo
+var keyframe_index
+var persistentFrame_models
+var LuxoClass
+
+var material = new THREE.MeshToonMaterial({
+  color: 0xabb8cc,
+  transparent: false,
+  opacity: 0.0,
+})
+var keyframeMaterial = new THREE.MeshToonMaterial({
+  color: 0xff6666,
+  transparent: true,
+  opacity: 0.5,
+})
+var inbetweenMaterial = new THREE.MeshToonMaterial({
+  color: 0xabb8cc,
+  transparent: true,
+  opacity: 0.25,
+})
+
+var outlineMaterial = new THREE.LineBasicMaterial({
+  color: 0x000000,
+  linewidth: 2,
+})
+
+var clearFrameModels = function() {
+   while (persistentFrame_models.length > 0) {
+     var frame = persistentFrame_models.pop()
+     scene.remove(frame.model)
+   }
+}
+
+var animate = function() {
+
+  if (current_frame_index == (animation_length-1)){
+    if(STATIC){
+      PAUSED = true 
+    } else {
+      clearFrameModels()
+      requestAnimationFrame(animate)
+    }
+    // In case if length changes
+    //animation_frames = predictions[current_sequence]
+    //cur_keyframes = all_keyframes[current_sequence]
+    //animation_length = cur_keyframes[cur_keyframes.length-1]+1
+    //current_frame_index = 0
+    //keyframe_index = 0
+    // Clean up keyframes from last sequence
+  } else {
+      requestAnimationFrame(animate)
+  }
+
+  // Spread syntax just turns array into comma separate list
+  luxo_states = animation_frames[current_frame_index]
+  luxo.setState(...luxo_states)
+
+  // Draw persistent keyframes
+  var luxo_arguments = null
+  if (current_frame_index == cur_keyframes[keyframe_index]) {
+    luxo_arguments = [
+      keyframeMaterial,
+      outlineMaterial,
+      false, //castShadow,
+    ]
+    keyframe_index += 1
+  } else {
+    luxo_arguments = [
+      inbetweenMaterial,
+      outlineMaterial,
+      false, //castShadow,
+    ]
+  }
+  // Javascript apparently doesn't have named arguments
+  // One way to is make constructor to take an object
+  var persistentFrame = new LuxoClass(...luxo_arguments)
+  persistentFrame.setState(...animation_frames[current_frame_index])
+
+  if (
+    // Show all
+    SHOW_FRAMES == 2 ||
+    // Show keyframes
+    (SHOW_FRAMES == 1 &&
+      current_frame_index == cur_keyframes[keyframe_index - 1])
+  ) {
+    scene.add(persistentFrame.model)
+    // Add to list, so we can clean later
+    persistentFrame_models.push(persistentFrame)
+  }
+
+  if (SHOW_OUTLINE) {
+    material.visible = false
+    keyframeMaterial.visible = false
+    inbetweenMaterial.visible = false      
+    outlineMaterial.visible = true
+  } else {
+    material.visible = true
+    keyframeMaterial.visible = true
+    inbetweenMaterial.visible = true      
+    outlineMaterial.visible = false
+  }
+
+  camera = cameras[CAMERA_SWITCH]
+  renderer.render(scene, camera)
+  if (MANUAL == false) {
+    current_frame_index = (current_frame_index+1) % animation_length  
+  }
+}
+
 
 // Document
 document.addEventListener('keydown', onDocumentKeyDown, false)
@@ -16,11 +133,34 @@ function onDocumentKeyDown(event) {
   } else if (keyCode == '2') {
     CAMERA_SWITCH = (CAMERA_SWITCH + 1) % 2
   } else if (MANUAL == true && keyCode == 'n') {
-    current_frame_index += 1
+    current_frame_index = (current_frame_index + 1) % animation_length  
+    console.log("Curr frame ",current_frame_index)
+  } else if (MANUAL == true && keyCode == 'p') {
+    current_frame_index = Math.max((current_frame_index-1),0) % animation_length  
+    console.log("Curr frame ",current_frame_index)
+  } else if (keyCode == '.') {
+    current_sequence = (current_sequence + 1) % num_sequences  
+    animation_frames = predictions[current_sequence]
+    cur_keyframes = all_keyframes[current_sequence]
+    current_frame_index = 0
+    keyframe_index = 0
+    clearFrameModels()
+    animate()
+    console.log("Curr sequence ",current_sequence)
+  } else if (keyCode == ',') {
+    current_sequence = Math.max((current_sequence-1),0) % num_sequences  
+    animation_frames = predictions[current_sequence]
+    cur_keyframes = all_keyframes[current_sequence]
+    current_frame_index = 0
+    keyframe_index = 0
+    clearFrameModels()
+    animate()
+    console.log("Curr sequence ",current_sequence)
   } else if (keyCode == '3') {
     SHOW_OUTLINE = !SHOW_OUTLINE
   } else if (keyCode == ' ') {
     MANUAL = !MANUAL
+    console.log("Manual is" + MANUAL)
   }
 }
 
@@ -113,6 +253,7 @@ manager.onError = function(url) {
   console.log('There was an error loading ' + url)
 }
 
+
 var objLoader = new THREE.OBJLoader2(manager)
 
 function loadObjMesh(file) {
@@ -135,7 +276,7 @@ async function loadObjModels() {
   var anim = []
   var basepath = 'models/'
   var files = ['base4.obj', 'leg4.obj', 'neck4.obj', 'head4.obj']
-  var anim_files = ['../pred.json', '../actual.json', '../key_cts.json']
+  var anim_files = ['pred.json', 'actual.json', 'key_cts.json']
 
   manager.onProgress = function(url, itemsLoaded, itemsTotal) {
     progressBar.style.width = itemsLoaded / files.length * 100 + '%'
@@ -190,7 +331,7 @@ loadObjModels().then(objs => {
   headMesh.geometry.translate(0, ss.y / 2, 0)
 
   // Luxo model definition
-  class LuxoModel {
+  LuxoClass = class LuxoModel {
     constructor(material, outlineMaterial, castShadow) {
       var castShadow = castShadow || true
 
@@ -267,16 +408,16 @@ loadObjModels().then(objs => {
       this.model.add(this.base.model)
 
       // Call setState
-      this.setState(0, 0, 0, 0, 0)
+      this.setState(0, 0, 0, 0, 0, 0)
     }
 
-    setState(x, y, baseAngle, legAngle, torsoAngle) {
+    setState(x, y, baseAngle, legAngle, torsoAngle, headAngle) {
       //console.log(x,y,baseAngle,legAngle,torsoAngle);
       this.base.angle = baseAngle
       //this.leg.angle = legAngle + this.base.angle
       this.leg.angle = legAngle
       this.torso.angle = torsoAngle
-      this.head.angle = Math.PI / 2
+      this.head.angle = Math.PI / 2 + headAngle
 
       // Compute base object
       this.base.x = x + this.base.radius * Math.cos(this.base.angle)
@@ -338,29 +479,9 @@ loadObjModels().then(objs => {
   }
 
   // Adding luxo to scene
-  var material = new THREE.MeshToonMaterial({
-    color: 0xabb8cc,
-    transparent: false,
-    opacity: 0.0,
-  })
-  var keyframeMaterial = new THREE.MeshToonMaterial({
-    color: 0xff6666,
-    transparent: true,
-    opacity: 0.5,
-  })
-  var inbetweenMaterial = new THREE.MeshToonMaterial({
-    color: 0xabb8cc,
-    transparent: true,
-    opacity: 0.25,
-  })
-
-  var outlineMaterial = new THREE.LineBasicMaterial({
-    color: 0x000000,
-    linewidth: 2,
-  })
   outlineMaterial.visible = false
 
-  var luxo = new LuxoModel(material, outlineMaterial, false)
+  luxo = new LuxoClass(material, outlineMaterial, false)
   scene.add(luxo.model)
   console.log(luxo)
 
@@ -377,7 +498,7 @@ loadObjModels().then(objs => {
   controls.forEach(control => control.update())
 
   // Keyframes
-  var all_keyframes = anim_data[2]
+  all_keyframes = anim_data[2]
   console.log(all_keyframes)
 
   // Put keyframes into absolute indexing
@@ -392,88 +513,16 @@ loadObjModels().then(objs => {
     return keyframes
   })
 
-  var predictions = anim_data[0]
-  var current_sequence = 0
-  var num_sequences = predictions.length
-  var animation_frames = predictions[current_sequence]
-  var cur_keyframes = all_keyframes[current_sequence]
-  var animation_length = animation_frames.length
-  var keyframe_index = 0
-  var persistentFrame_models = []
+  predictions = anim_data[0]
+  num_sequences = predictions.length
 
-  var animate = function() {
-    requestAnimationFrame(animate)
+  animation_frames = predictions[current_sequence]
+  cur_keyframes = all_keyframes[current_sequence]
 
-    if (current_frame_index == animation_length) {
-      // Pick a random sequence
-      current_sequence = Math.floor(Math.random() * (num_sequences - 1))
-      // In case if length changes
-      animation_frames = predictions[current_sequence]
-      cur_keyframes = all_keyframes[current_sequence]
-      animation_length = animation_frames.length
-      current_frame_index = 0
-      keyframe_index = 0
-      // Clean up keyframes from last sequence
-      while (persistentFrame_models.length > 0) {
-        var frame = persistentFrame_models.pop()
-        scene.remove(frame.model)
-      }
-    }
+  animation_length = cur_keyframes[cur_keyframes.length-1]+1
 
-    // Spread syntax just turns array into comma separate list
-    luxo_states = animation_frames[current_frame_index]
-    luxo.setState(...luxo_states)
+  keyframe_index = 0
+  persistentFrame_models = []
 
-    // Draw persistent keyframes
-    var luxo_arguments = null
-    if (current_frame_index == cur_keyframes[keyframe_index]) {
-      luxo_arguments = [
-        keyframeMaterial,
-        outlineMaterial,
-        false, //castShadow,
-      ]
-      keyframe_index += 1
-    } else {
-      luxo_arguments = [
-        inbetweenMaterial,
-        outlineMaterial,
-        false, //castShadow,
-      ]
-    }
-    // Javascript apparently doesn't have named arguments
-    // One way to is make constructor to take an object
-    var persistentFrame = new LuxoModel(...luxo_arguments)
-    persistentFrame.setState(...animation_frames[current_frame_index])
-
-    if (
-      // Show all
-      SHOW_FRAMES == 2 ||
-      // Show keyframes
-      (SHOW_FRAMES == 1 &&
-        current_frame_index == cur_keyframes[keyframe_index - 1])
-    ) {
-      scene.add(persistentFrame.model)
-      // Add to list, so we can clean later
-      persistentFrame_models.push(persistentFrame)
-    }
-
-    if (SHOW_OUTLINE) {
-      material.visible = false
-      keyframeMaterial.visible = false
-      inbetweenMaterial.visible = false      
-      outlineMaterial.visible = true
-    } else {
-      material.visible = true
-      keyframeMaterial.visible = true
-      inbetweenMaterial.visible = true      
-      outlineMaterial.visible = false
-    }
-
-    camera = cameras[CAMERA_SWITCH]
-    renderer.render(scene, camera)
-    if (MANUAL == false) {
-      current_frame_index += 1
-    }
-  }
   animate()
 })
