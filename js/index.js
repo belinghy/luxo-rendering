@@ -4,6 +4,7 @@ var SHOW_FRAMES = 0
 // 0= Perspective, 1= Orthographic
 var CAMERA_SWITCH = 1
 var MANUAL = false
+var SHOW_OUTLINE = false
 var current_frame_index = 0
 
 // Document
@@ -16,6 +17,8 @@ function onDocumentKeyDown(event) {
     CAMERA_SWITCH = (CAMERA_SWITCH + 1) % 2
   } else if (MANUAL == true && keyCode == 'n') {
     current_frame_index += 1
+  } else if (keyCode == '3') {
+    SHOW_OUTLINE = !SHOW_OUTLINE
   } else if (keyCode == ' ') {
     MANUAL = !MANUAL
   }
@@ -180,104 +183,73 @@ loadObjModels().then(objs => {
 
   // Luxo model definition
   class LuxoModel {
-    constructor(
-      baseRadius,
-      baseHeight,
-      baseAngle,
-      legRadius,
-      legLength,
-      legAngle,
-      torsoRadius,
-      torsoLength,
-      torsoAngle,
-      headBaseRadius,
-      headHeadRadius,
-      headLength,
-      materialColour,
-      castShadow,
-      transparent,
-      opacity
-    ) {
-      var materialColour = materialColour || 0xabb8cc
-      var transparent = transparent || false
-      var opacity = opacity || 0.0
+    constructor(material, outlineMaterial, castShadow) {
       var castShadow = castShadow || true
-
-      var material = new THREE.MeshToonMaterial({
-        color: materialColour,
-        transparent: transparent,
-        opacity: opacity,
-      })
-      material.outlineParameters = {
-        thickNess: 0.01,
-        color: new THREE.Color(0x000000),
-        alpha: 1.0,
-        visible: true,
-        keepAlive: true,
-      }
 
       // cylinder: (radius, radius, height, rsegment, hsegment)
       // Base
-      this.base = {
-        radius: baseRadius || 0.4,
-        height: baseHeight || 0.1,
-        angle: baseAngle || 0,
-      }
+      this.base = {}
       this.base.model = baseMesh.clone()
       var box = new THREE.Box3().setFromObject(this.base.model)
       var size = box.getSize()
       this.base.radius = size.x
       this.base.height = size.y
-
+      this.base.angle = 0
       this.base.model.material = material
       this.base.model.castShadow = castShadow
+      this.base.outline = new THREE.LineSegments(
+        new THREE.WireframeGeometry(this.base.model.geometry),
+        outlineMaterial
+      )
+      this.base.model.add(this.base.outline)
 
       // Leg
-      this.leg = {
-        radius: legRadius || 0.1,
-        length: legLength || 0.6,
-        angle: legAngle || 0,
-      }
+      this.leg = {}
       this.leg.model = legMesh.clone()
       box = new THREE.Box3().setFromObject(this.leg.model)
       size = box.getSize()
       this.leg.radius = size.x
       this.leg.length = size.y
-
+      this.leg.angle = 0
       this.leg.model.material = material
       this.leg.model.castShadow = castShadow
+      this.leg.outline = new THREE.LineSegments(
+        new THREE.WireframeGeometry(this.leg.model.geometry),
+        outlineMaterial
+      )
+      this.leg.model.add(this.leg.outline)
 
       // Torso
-      this.torso = {
-        radius: torsoRadius || 0.1,
-        length: torsoRadius || 0.6,
-        angle: torsoAngle || 0,
-      }
-
+      this.torso = {}
       this.torso.model = neckMesh.clone()
       box = new THREE.Box3().setFromObject(this.torso.model)
       size = box.getSize()
       this.torso.radius = size.x
       this.torso.length = size.y
-
+      this.torso.angle = 0
       this.torso.model.material = material
       this.torso.model.castShadow = castShadow
+      this.torso.outline = new THREE.LineSegments(
+        new THREE.WireframeGeometry(this.torso.model.geometry),
+        outlineMaterial
+      )
+      this.torso.model.add(this.torso.outline)
 
       // Head
-      this.head = {
-        baseRadius: headBaseRadius || 0.1,
-        headRadius: headHeadRadius || 0.2,
-        length: headLength || 0.2,
-        angle: this.torso.angle + Math.PI / 2,
-      }
+      this.head = {}
       this.head.model = headMesh.clone()
       box = new THREE.Box3().setFromObject(this.head.model)
       size = box.getSize()
       this.head.radius = size.x
       this.head.length = size.y
-
+      this.head.angle = Math.PI / 2
       this.head.model.material = material
       this.head.model.castShadow = castShadow
+      this.head.outline = new THREE.LineSegments(
+        new THREE.WireframeGeometry(this.head.model.geometry),
+        outlineMaterial
+      )
+      this.head.model.add(this.head.outline)
 
       // Overall model
       this.model = new THREE.Group()
@@ -358,8 +330,31 @@ loadObjModels().then(objs => {
   }
 
   // Adding luxo to scene
-  var luxo = new LuxoModel()
+  var material = new THREE.MeshToonMaterial({
+    color: 0xabb8cc,
+    transparent: false,
+    opacity: 0.0,
+  })
+  var keyframeMaterial = new THREE.MeshToonMaterial({
+    color: 0xff6666,
+    transparent: true,
+    opacity: 0.5,
+  })
+  var inbetweenMaterial = new THREE.MeshToonMaterial({
+    color: 0xabb8cc,
+    transparent: true,
+    opacity: 0.25,
+  })
+
+  var outlineMaterial = new THREE.LineBasicMaterial({
+    color: 0x000000,
+    linewidth: 2,
+  })
+  outlineMaterial.visible = false
+
+  var luxo = new LuxoModel(material, outlineMaterial, false)
   scene.add(luxo.model)
+  console.log(luxo)
 
   // Adding floor to scene
   var floor = new THREE.Mesh(
@@ -12287,42 +12282,16 @@ loadObjModels().then(objs => {
     var luxo_arguments = null
     if (current_frame_index == cur_keyframes[keyframe_index]) {
       luxo_arguments = [
-        null, // baseRadius,
-        null, // baseHeight,
-        null, // baseAngle,
-        null, // legRadius,
-        null, // legLength,
-        null, // legAngle,
-        null, // torsoRadius,
-        null, // torsoLength,
-        null, // torsoAngle,
-        null, // headBaseRadius,
-        null, // headHeadRadius,
-        null, // headLength,
-        0xff6666, // materialColour,
+        keyframeMaterial,
+        outlineMaterial,
         false, //castShadow,
-        true, // transparent,
-        0.5, //opacity
       ]
       keyframe_index += 1
     } else {
       luxo_arguments = [
-        null, // baseRadius,
-        null, // baseHeight,
-        null, // baseAngle,
-        null, // legRadius,
-        null, // legLength,
-        null, // legAngle,
-        null, // torsoRadius,
-        null, // torsoLength,
-        null, // torsoAngle,
-        null, // headBaseRadius,
-        null, // headHeadRadius,
-        null, // headLength,
-        null, // materialColour,
+        inbetweenMaterial,
+        outlineMaterial,
         false, //castShadow,
-        true, // transparent,
-        0.25, //opacity
       ]
     }
     // Javascript apparently doesn't have named arguments
@@ -12342,8 +12311,20 @@ loadObjModels().then(objs => {
       persistentFrame_models.push(persistentFrame)
     }
 
+    if (SHOW_OUTLINE) {
+      material.visible = false
+      keyframeMaterial.visible = false
+      inbetweenMaterial.visible = false      
+      outlineMaterial.visible = true
+    } else {
+      material.visible = true
+      keyframeMaterial.visible = true
+      inbetweenMaterial.visible = true      
+      outlineMaterial.visible = false
+    }
+
     camera = cameras[CAMERA_SWITCH]
-    effect.render(scene, camera)
+    renderer.render(scene, camera)
     if (MANUAL == false) {
       current_frame_index += 1
     }
