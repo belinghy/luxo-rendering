@@ -4,7 +4,7 @@ var SHOW_FRAMES =2
 // 0= Perspective, 1= Orthographic
 var CAMERA_SWITCH = 1
 var MANUAL_PLAYBACK = false
-var SET_KEYFRAMES = false
+var SAVE_KEYFRAME_MODE = false
 var SHOW_OUTLINE = false
 var STATIC = true
 
@@ -103,6 +103,17 @@ var AnimDataClass = function() {
         scene.add(persistentFrame.model)
     };
 
+    this.setCurrentPose = function() {
+        if (SAVE_KEYFRAME_MODE){
+            //this.current_frames[this.current_frame_index][0] = this.base_x 
+            //this.current_frames[this.current_frame_index][0] = this.base_y 
+            //this.current_frames[this.current_frame_index][0] = this.base_ori 
+            //this.current_frames[this.current_frame_index][0] = this.leg_angle  
+            //this.current_frames[this.current_frame_index][0] = this.neck_angle 
+            this.current_frames[this.current_frame_index][6] = this.head_angle
+        }
+    };
+
     this.getCurrentPose = function() {
         pose = this.current_frames[this.current_frame_index]
         this.base_x = pose[0]
@@ -156,14 +167,21 @@ var outlineMaterial = new THREE.LineBasicMaterial({
   linewidth: 2,
 })
 
+var adjust = function() {
+    AnimData.setCurrentPose()
 
+    luxo_states = AnimData.getCurrentPose()
+    luxo.setState(...luxo_states)
+    renderer.render(scene, camera)
+    requestAnimationFrame(adjust)
+}
 var animate = function() {
   for (var i in gui.__controllers) {
     gui.__controllers[i].updateDisplay();
   }
   if (AnimData.atEndOfSequence()){
     if(STATIC){
-      PAUSED = true 
+      adjust()
     } else {
       AnimData.clearFrameModels()
       requestAnimationFrame(animate)
