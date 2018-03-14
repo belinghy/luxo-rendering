@@ -4,7 +4,7 @@ var SHOW_FRAMES =2
 // 0= Perspective, 1= Orthographic
 var CAMERA_SWITCH = 1
 var MANUAL_PLAYBACK = false
-var SAVE_KEYFRAME_MODE = false
+var SAVE_KEYFRAME_MODE = true
 var SHOW_OUTLINE = false
 var STATIC = true
 
@@ -110,18 +110,20 @@ var AnimDataClass = function() {
             //this.current_frames[this.current_frame_index][0] = this.base_ori 
             //this.current_frames[this.current_frame_index][0] = this.leg_angle  
             //this.current_frames[this.current_frame_index][0] = this.neck_angle 
-            this.current_frames[this.current_frame_index][6] = this.head_angle
+            this.current_frames[this.current_frame_index][5] = this.head_angle
         }
     };
 
     this.getCurrentPose = function() {
         pose = this.current_frames[this.current_frame_index]
-        this.base_x = pose[0]
-        this.base_y = pose[1] 
-        this.base_ori = pose[2] 
-        this.leg_angle = pose[3] 
-        this.neck_angle = pose[4] 
-        this.head_angle = pose[5] 
+        if (!SAVE_KEYFRAME_MODE){
+            this.base_x = pose[0]
+            this.base_y = pose[1] 
+            this.base_ori = pose[2] 
+            this.leg_angle = pose[3] 
+            this.neck_angle = pose[4] 
+            this.head_angle = pose[5] 
+        }
         return pose
     };
 
