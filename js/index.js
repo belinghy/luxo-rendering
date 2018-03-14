@@ -6,18 +6,120 @@ var CAMERA_SWITCH = 1
 var MANUAL = false
 var SHOW_OUTLINE = false
 var STATIC = true
-var current_frame_index = 0
-var animation_length = 1 
-var current_sequence = 0
-var num_sequences  
-var predictions  
-var animation_frames 
-var cur_keyframes
-var all_keyframes
+
 var luxo
-var keyframe_index
-var persistentFrame_models
 var LuxoClass
+var AnimData
+
+var AnimDataClass = function() {
+
+    this.num_sequences=1;
+    this.animation_length=1;
+
+    this.current_sequence=0;
+    this.current_frame_index=0;
+    this.current_keyframe_index=0;
+
+    this.current_keyframes=[];
+    this.current_frames=[];
+
+
+    this.all_keyframes=[];
+    this.all_predictions=[];
+
+    this.persistentFrame_models=[];
+
+    this.set_all_predictions = function(data) {
+        console.log("Setting predictions")
+        this.all_predictions = data
+        this.num_sequences = this.all_predictions.length
+        this.current_frames = this.all_predictions[this.current_sequence]
+    };
+
+    this.set_keyframes = function(data) {
+        console.log("Setting keyframes")
+        // Put keyframes into absolute indexing
+        this.all_keyframes = data.map(keyframes => {
+          // keyframes is a list of "gaps"
+          let acc = 0
+          keyframes = keyframes.map(cur => {
+            acc = acc + cur + 1
+            return acc
+          })
+          keyframes.unshift(0) // Prepend 0 for first keyframe
+          return keyframes
+        })
+        this.current_keyframes = this.all_keyframes[this.current_sequence]
+        this.animation_length = this.current_keyframes[this.current_keyframes.length-1]+1
+    };
+
+    this.clearFrameModels = function() {
+        while (this.persistentFrame_models.length > 0) {
+            var frame = this.persistentFrame_models.pop()
+            scene.remove(frame.model)
+        }
+    };
+
+    this.nextFrame = function() {
+        this.current_frame_index = (this.current_frame_index + 1) % this.animation_length  
+    };
+    this.prevFrame = function() {
+        this.current_frame_index = Math.max(this.current_frame_index - 1,0) % this.animation_length  
+    };
+    this.nextSequence = function() {
+        this.current_sequence = (this.current_sequence + 1) % this.num_sequences  
+        this.current_frames = this.all_predictions[this.current_sequence]
+        this.current_keyframes = this.all_keyframes[this.current_sequence]
+        this.current_frame_index = 0
+        this.current_keyframe_index = 0
+        this.clearFrameModels()
+    };
+    this.prevSequence = function() {
+        this.current_sequence = Math.max((this.current_sequence-1),0) % this.num_sequences  
+        this.current_frames = all_predictions[this.current_sequence]
+        this.current_keyframes = all_keyframes[this.current_sequence]
+        this.current_frame_index = 0
+        this.current_keyframe_index = 0
+        this.clearFrameModels()
+    };
+    this.atEndOfSequence = function() {
+        return (this.current_frame_index == (this.animation_length-1))
+    };
+    this.atKeyFrame = function() {
+        return (this.current_frame_index == this.current_keyframes[this.current_keyframe_index - 1])
+    };
+    this.addPersistentFrame = function(luxo_arguments) {
+        var persistentFrame = new LuxoClass(...luxo_arguments)
+        persistentFrame.setState(...this.current_frames[this.current_frame_index])
+        this.persistentFrame_models.push(persistentFrame)
+        scene.add(persistentFrame.model)
+    };
+
+    this.getCurrentPose = function() {
+        return this.current_frames[this.current_frame_index]
+    };
+
+    this.getDisplayColorArguments = function () {
+        var luxo_arguments
+        if (this.current_frame_index == this.current_keyframes[this.current_keyframe_index]) {
+          luxo_arguments = [
+            keyframeMaterial,
+            outlineMaterial,
+            false, //castShadow,
+          ]
+          this.current_keyframe_index += 1
+        } else {
+          luxo_arguments = [
+            inbetweenMaterial,
+            outlineMaterial,
+            false, //castShadow,
+          ]
+        }
+        return luxo_arguments
+    };
+}
+    
+  // Define render logic ...
 
 var material = new THREE.MeshToonMaterial({
   color: 0xabb8cc,
@@ -34,74 +136,38 @@ var inbetweenMaterial = new THREE.MeshToonMaterial({
   transparent: true,
   opacity: 0.25,
 })
-
 var outlineMaterial = new THREE.LineBasicMaterial({
   color: 0x000000,
   linewidth: 2,
 })
 
-var clearFrameModels = function() {
-   while (persistentFrame_models.length > 0) {
-     var frame = persistentFrame_models.pop()
-     scene.remove(frame.model)
-   }
-}
 
 var animate = function() {
-
-  if (current_frame_index == (animation_length-1)){
+  if (AnimData.atEndOfSequence()){
     if(STATIC){
       PAUSED = true 
     } else {
-      clearFrameModels()
+      AnimData.clearFrameModels()
       requestAnimationFrame(animate)
     }
-    // In case if length changes
-    //animation_frames = predictions[current_sequence]
-    //cur_keyframes = all_keyframes[current_sequence]
-    //animation_length = cur_keyframes[cur_keyframes.length-1]+1
-    //current_frame_index = 0
-    //keyframe_index = 0
-    // Clean up keyframes from last sequence
   } else {
       requestAnimationFrame(animate)
   }
-
   // Spread syntax just turns array into comma separate list
-  luxo_states = animation_frames[current_frame_index]
+  luxo_states = AnimData.getCurrentPose()
   luxo.setState(...luxo_states)
-
   // Draw persistent keyframes
-  var luxo_arguments = null
-  if (current_frame_index == cur_keyframes[keyframe_index]) {
-    luxo_arguments = [
-      keyframeMaterial,
-      outlineMaterial,
-      false, //castShadow,
-    ]
-    keyframe_index += 1
-  } else {
-    luxo_arguments = [
-      inbetweenMaterial,
-      outlineMaterial,
-      false, //castShadow,
-    ]
-  }
+  luxo_arguments = AnimData.getDisplayColorArguments()
   // Javascript apparently doesn't have named arguments
   // One way to is make constructor to take an object
-  var persistentFrame = new LuxoClass(...luxo_arguments)
-  persistentFrame.setState(...animation_frames[current_frame_index])
-
   if (
     // Show all
     SHOW_FRAMES == 2 ||
     // Show keyframes
-    (SHOW_FRAMES == 1 &&
-      current_frame_index == cur_keyframes[keyframe_index - 1])
+    (SHOW_FRAMES == 1 && AnimData.atKeyFrame())
   ) {
-    scene.add(persistentFrame.model)
+    AnimData.addPersistentFrame(luxo_arguments)
     // Add to list, so we can clean later
-    persistentFrame_models.push(persistentFrame)
   }
 
   if (SHOW_OUTLINE) {
@@ -119,7 +185,7 @@ var animate = function() {
   camera = cameras[CAMERA_SWITCH]
   renderer.render(scene, camera)
   if (MANUAL == false) {
-    current_frame_index = (current_frame_index+1) % animation_length  
+      AnimData.nextFrame()
   }
 }
 
@@ -133,29 +199,15 @@ function onDocumentKeyDown(event) {
   } else if (keyCode == '2') {
     CAMERA_SWITCH = (CAMERA_SWITCH + 1) % 2
   } else if (MANUAL == true && keyCode == 'n') {
-    current_frame_index = (current_frame_index + 1) % animation_length  
-    console.log("Curr frame ",current_frame_index)
+    AnimData.nextFrame()
   } else if (MANUAL == true && keyCode == 'p') {
-    current_frame_index = Math.max((current_frame_index-1),0) % animation_length  
-    console.log("Curr frame ",current_frame_index)
+    AnimData.prevFrame()
   } else if (keyCode == '.') {
-    current_sequence = (current_sequence + 1) % num_sequences  
-    animation_frames = predictions[current_sequence]
-    cur_keyframes = all_keyframes[current_sequence]
-    current_frame_index = 0
-    keyframe_index = 0
-    clearFrameModels()
+    AnimData.nextSequence()
     animate()
-    console.log("Curr sequence ",current_sequence)
   } else if (keyCode == ',') {
-    current_sequence = Math.max((current_sequence-1),0) % num_sequences  
-    animation_frames = predictions[current_sequence]
-    cur_keyframes = all_keyframes[current_sequence]
-    current_frame_index = 0
-    keyframe_index = 0
-    clearFrameModels()
+    AnimData.prevSequence()
     animate()
-    console.log("Curr sequence ",current_sequence)
   } else if (keyCode == '3') {
     SHOW_OUTLINE = !SHOW_OUTLINE
   } else if (keyCode == ' ') {
@@ -297,7 +349,6 @@ async function loadObjModels() {
     mesh.geometry = new THREE.Geometry().fromBufferGeometry(mesh.geometry)
     mesh.geometry.center()
   })
-  console.log(anim)
   return [model,anim]
 }
 
@@ -496,33 +547,9 @@ loadObjModels().then(objs => {
 
   // init camera control
   controls.forEach(control => control.update())
-
-  // Keyframes
-  all_keyframes = anim_data[2]
-  console.log(all_keyframes)
-
-  // Put keyframes into absolute indexing
-  all_keyframes = all_keyframes.map(keyframes => {
-    // keyframes is a list of "gaps"
-    let acc = 0
-    keyframes = keyframes.map(cur => {
-      acc = acc + cur + 1
-      return acc
-    })
-    keyframes.unshift(0) // Prepend 0 for first keyframe
-    return keyframes
-  })
-
-  predictions = anim_data[0]
-  num_sequences = predictions.length
-
-  animation_frames = predictions[current_sequence]
-  cur_keyframes = all_keyframes[current_sequence]
-
-  animation_length = cur_keyframes[cur_keyframes.length-1]+1
-
-  keyframe_index = 0
-  persistentFrame_models = []
-
+    
+  AnimData = new AnimDataClass()
+  AnimData.set_all_predictions(anim_data[0])
+  AnimData.set_keyframes(anim_data[2])
   animate()
 })
