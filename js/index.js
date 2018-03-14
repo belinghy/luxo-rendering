@@ -3,13 +3,15 @@
 var SHOW_FRAMES =2 
 // 0= Perspective, 1= Orthographic
 var CAMERA_SWITCH = 1
-var MANUAL = false
+var MANUAL_PLAYBACK = false
+var SET_KEYFRAMES = false
 var SHOW_OUTLINE = false
 var STATIC = true
 
 var luxo
 var LuxoClass
 var AnimData
+var gui = new dat.GUI();
 
 var AnimDataClass = function() {
 
@@ -19,6 +21,12 @@ var AnimDataClass = function() {
     this.current_sequence=0;
     this.current_frame_index=0;
     this.current_keyframe_index=0;
+    this.base_x = 0
+    this.base_y = 0.144
+    this.base_ori = -0.0355
+    this.leg_angle = 0.64
+    this.neck_angle = 0.47
+    this.head_angle = -0.0313
 
     this.current_keyframes=[];
     this.current_frames=[];
@@ -96,7 +104,14 @@ var AnimDataClass = function() {
     };
 
     this.getCurrentPose = function() {
-        return this.current_frames[this.current_frame_index]
+        pose = this.current_frames[this.current_frame_index]
+        this.base_x = pose[0]
+        this.base_y = pose[1] 
+        this.base_ori = pose[2] 
+        this.leg_angle = pose[3] 
+        this.neck_angle = pose[4] 
+        this.head_angle = pose[5] 
+        return pose
     };
 
     this.getDisplayColorArguments = function () {
@@ -143,6 +158,9 @@ var outlineMaterial = new THREE.LineBasicMaterial({
 
 
 var animate = function() {
+  for (var i in gui.__controllers) {
+    gui.__controllers[i].updateDisplay();
+  }
   if (AnimData.atEndOfSequence()){
     if(STATIC){
       PAUSED = true 
@@ -184,7 +202,7 @@ var animate = function() {
 
   camera = cameras[CAMERA_SWITCH]
   renderer.render(scene, camera)
-  if (MANUAL == false) {
+  if (MANUAL_PLAYBACK == false) {
       AnimData.nextFrame()
   }
 }
@@ -198,9 +216,9 @@ function onDocumentKeyDown(event) {
     SHOW_FRAMES = (SHOW_FRAMES + 1) % 3
   } else if (keyCode == '2') {
     CAMERA_SWITCH = (CAMERA_SWITCH + 1) % 2
-  } else if (MANUAL == true && keyCode == 'n') {
+  } else if (MANUAL_PLAYBACK == true && keyCode == 'n') {
     AnimData.nextFrame()
-  } else if (MANUAL == true && keyCode == 'p') {
+  } else if (MANUAL_PLAYBACK == true && keyCode == 'p') {
     AnimData.prevFrame()
   } else if (keyCode == '.') {
     AnimData.nextSequence()
@@ -211,8 +229,10 @@ function onDocumentKeyDown(event) {
   } else if (keyCode == '3') {
     SHOW_OUTLINE = !SHOW_OUTLINE
   } else if (keyCode == ' ') {
-    MANUAL = !MANUAL
-    console.log("Manual is" + MANUAL)
+    MANUAL_PLAYBACK = !MANUAL_PLAYBACK
+    console.log("Manual is" + MANUAL_PLAYBACK)
+  } else if (keyCode == 's') {
+    SAVE_KEYFRAME_MODE = !SAVE_KEYFRAME_MODE
   }
 }
 
@@ -551,5 +571,13 @@ loadObjModels().then(objs => {
   AnimData = new AnimDataClass()
   AnimData.set_all_predictions(anim_data[0])
   AnimData.set_keyframes(anim_data[2])
+
+  gui.add(AnimData,"base_x").listen()
+  gui.add(AnimData,"base_y").listen()
+  gui.add(AnimData,"base_ori").listen()
+  gui.add(AnimData,"leg_angle").listen()
+  gui.add(AnimData,"neck_angle").listen()
+  gui.add(AnimData,"head_angle",-1.7,0.17).listen()
+
   animate()
 })
