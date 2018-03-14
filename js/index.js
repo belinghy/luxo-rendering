@@ -7,6 +7,11 @@ var MANUAL = false
 var SHOW_OUTLINE = false
 var current_frame_index = 0
 
+// Threejs variables
+var renderer, scene, camera, outlinePass, renderPass, effectFXAA, composer
+var luxo, persistentFrame_models
+var material, keyframeMaterial, inbetweenMaterial, wireframeMaterial
+
 // Document
 document.addEventListener('keydown', onDocumentKeyDown, false)
 function onDocumentKeyDown(event) {
@@ -15,29 +20,62 @@ function onDocumentKeyDown(event) {
     SHOW_FRAMES = (SHOW_FRAMES + 1) % 3
   } else if (keyCode == '2') {
     CAMERA_SWITCH = (CAMERA_SWITCH + 1) % 2
+    camera = cameras[CAMERA_SWITCH]
+    control = controls[CAMERA_SWITCH]
+    var selectedObjects = outlinePass.selectedObjects
+    composer = new THREE.EffectComposer(renderer)
+    renderPass = new THREE.RenderPass(scene, camera)
+    composer.addPass(renderPass)
+    outlinePass = new THREE.OutlinePass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      scene,
+      camera
+    )
+    outlinePass.selectedObjects = selectedObjects
+    composer.addPass(outlinePass)
+    effectFXAA = new THREE.ShaderPass(THREE.FXAAShader)
+    effectFXAA.uniforms['resolution'].value.set(
+      1 / window.innerWidth,
+      1 / window.innerHeight
+    )
+    effectFXAA.renderToScreen = true
+    composer.addPass(effectFXAA)
   } else if (MANUAL == true && keyCode == 'n') {
     current_frame_index += 1
   } else if (keyCode == '3') {
     SHOW_OUTLINE = !SHOW_OUTLINE
+    console.log(spotLight)
+    if (SHOW_OUTLINE) {
+      material.transparent = true
+      keyframeMaterial.transparent = true
+      keyframeMaterial.opacity = 0.0
+      inbetweenMaterial.transparent = true
+      inbetweenMaterial.opacity = 0.0
+      outlinePass.selectedObjects = [luxo.model]
+    } else {
+      material.transparent = false
+      keyframeMaterial.transparent = false
+      keyframeMaterial.opacity = 0.5
+      inbetweenMaterial.transparent = false
+      inbetweenMaterial.opacity = 0.25
+      outlinePass.selectedObjects = []
+    }
   } else if (keyCode == ' ') {
     MANUAL = !MANUAL
   }
 }
 
 // renderer
-var renderer = new THREE.WebGLRenderer()
+renderer = new THREE.WebGLRenderer()
 renderer.setPixelRatio(window.devicePixelRatio)
 renderer.setSize(window.innerWidth, window.innerHeight)
 renderer.shadowMap.enabled = true
 renderer.shadowMap.type = THREE.PCFSoftShadowMap
 renderer.gammaInput = true
 renderer.gammaOutput = true
-var effect = new THREE.OutlineEffect(renderer, {
-  defaultColor: new THREE.Color(0x000000),
-})
 
 // scene
-var scene = new THREE.Scene()
+scene = new THREE.Scene()
 scene.background = new THREE.Color(0xf0f0f0)
 var ambient = new THREE.AmbientLight(0xffffff, 0.1)
 scene.add(ambient)
@@ -95,8 +133,9 @@ orthoControls.maxDistance = 500
 orthoControls.enablePan = true
 orthoControls.target.set(0, 0, 0)
 var controls = [perspectiveControls, orthoControls]
+control = controls[CAMERA_SWITCH]
 
-// objloader
+// progressbar
 var progressWrapper = document.createElement('div')
 var progressBar = document.createElement('div')
 progressWrapper.className = 'loader-progress-wrapper'
@@ -104,16 +143,33 @@ progressBar.className = 'loader-progress-progress'
 progressBar.style.width = '0%'
 progressWrapper.appendChild(progressBar)
 
+// objloader
 var manager = new THREE.LoadingManager()
 manager.onStart = function(url, itemsLoaded, itemsTotal) {
   document.body.appendChild(progressWrapper)
 }
-
 manager.onError = function(url) {
   console.log('There was an error loading ' + url)
 }
-
 var objLoader = new THREE.OBJLoader2(manager)
+
+// composer
+composer = new THREE.EffectComposer(renderer)
+renderPass = new THREE.RenderPass(scene, camera)
+composer.addPass(renderPass)
+outlinePass = new THREE.OutlinePass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  scene,
+  camera
+)
+composer.addPass(outlinePass)
+effectFXAA = new THREE.ShaderPass(THREE.FXAAShader)
+effectFXAA.uniforms['resolution'].value.set(
+  1 / window.innerWidth,
+  1 / window.innerHeight
+)
+effectFXAA.renderToScreen = true
+composer.addPass(effectFXAA)
 
 function loadObjMesh(file) {
   return new Promise((resolve, reject) => {
@@ -183,7 +239,7 @@ loadObjModels().then(objs => {
 
   // Luxo model definition
   class LuxoModel {
-    constructor(material, outlineMaterial, castShadow) {
+    constructor(material, wireframeMaterial, castShadow) {
       var castShadow = castShadow || true
 
       // cylinder: (radius, radius, height, rsegment, hsegment)
@@ -199,9 +255,9 @@ loadObjModels().then(objs => {
       this.base.model.castShadow = castShadow
       this.base.outline = new THREE.LineSegments(
         new THREE.WireframeGeometry(this.base.model.geometry),
-        outlineMaterial
+        wireframeMaterial
       )
-      this.base.model.add(this.base.outline)
+      // this.base.model.add(this.base.outline)
 
       // Leg
       this.leg = {}
@@ -215,9 +271,9 @@ loadObjModels().then(objs => {
       this.leg.model.castShadow = castShadow
       this.leg.outline = new THREE.LineSegments(
         new THREE.WireframeGeometry(this.leg.model.geometry),
-        outlineMaterial
+        wireframeMaterial
       )
-      this.leg.model.add(this.leg.outline)
+      // this.leg.model.add(this.leg.outline)
 
       // Torso
       this.torso = {}
@@ -231,9 +287,9 @@ loadObjModels().then(objs => {
       this.torso.model.castShadow = castShadow
       this.torso.outline = new THREE.LineSegments(
         new THREE.WireframeGeometry(this.torso.model.geometry),
-        outlineMaterial
+        wireframeMaterial
       )
-      this.torso.model.add(this.torso.outline)
+      // this.torso.model.add(this.torso.outline)
 
       // Head
       this.head = {}
@@ -247,9 +303,9 @@ loadObjModels().then(objs => {
       this.head.model.castShadow = castShadow
       this.head.outline = new THREE.LineSegments(
         new THREE.WireframeGeometry(this.head.model.geometry),
-        outlineMaterial
+        wireframeMaterial
       )
-      this.head.model.add(this.head.outline)
+      // this.head.model.add(this.head.outline)
 
       // Overall model
       this.model = new THREE.Group()
@@ -330,34 +386,33 @@ loadObjModels().then(objs => {
   }
 
   // Adding luxo to scene
-  var material = new THREE.MeshToonMaterial({
+  material = new THREE.MeshToonMaterial({
     color: 0xabb8cc,
     transparent: false,
     opacity: 0.0,
   })
-  var keyframeMaterial = new THREE.MeshToonMaterial({
+  keyframeMaterial = new THREE.MeshToonMaterial({
     color: 0xff6666,
     transparent: true,
     opacity: 0.5,
   })
-  var inbetweenMaterial = new THREE.MeshToonMaterial({
+  inbetweenMaterial = new THREE.MeshToonMaterial({
     color: 0xabb8cc,
     transparent: true,
     opacity: 0.25,
   })
 
-  var outlineMaterial = new THREE.LineBasicMaterial({
+  wireframeMaterial = new THREE.LineBasicMaterial({
     color: 0x000000,
     linewidth: 2,
   })
-  outlineMaterial.visible = false
+  wireframeMaterial.visible = false
 
-  var luxo = new LuxoModel(material, outlineMaterial, false)
+  luxo = new LuxoModel(material, wireframeMaterial, false)
   scene.add(luxo.model)
-  console.log(luxo)
 
   // Adding floor to scene
-  var floor = new THREE.Mesh(
+  floor = new THREE.Mesh(
     new THREE.BoxGeometry(2000, 1, 2000),
     new THREE.MeshToonMaterial({ color: 0x808080, dithering: true })
   )
@@ -12253,7 +12308,7 @@ loadObjModels().then(objs => {
   var cur_keyframes = all_keyframes[current_sequence]
   var animation_length = animation_frames.length
   var keyframe_index = 0
-  var persistentFrame_models = []
+  persistentFrame_models = []
 
   var animate = function() {
     requestAnimationFrame(animate)
@@ -12283,14 +12338,14 @@ loadObjModels().then(objs => {
     if (current_frame_index == cur_keyframes[keyframe_index]) {
       luxo_arguments = [
         keyframeMaterial,
-        outlineMaterial,
+        wireframeMaterial,
         false, //castShadow,
       ]
       keyframe_index += 1
     } else {
       luxo_arguments = [
         inbetweenMaterial,
-        outlineMaterial,
+        wireframeMaterial,
         false, //castShadow,
       ]
     }
@@ -12306,25 +12361,16 @@ loadObjModels().then(objs => {
       (SHOW_FRAMES == 1 &&
         current_frame_index == cur_keyframes[keyframe_index - 1])
     ) {
+      // Render and add to outlinePass
       scene.add(persistentFrame.model)
+      if (SHOW_OUTLINE) {
+        outlinePass.selectedObjects.push(persistentFrame.model)
+      }
       // Add to list, so we can clean later
       persistentFrame_models.push(persistentFrame)
     }
 
-    if (SHOW_OUTLINE) {
-      material.visible = false
-      keyframeMaterial.visible = false
-      inbetweenMaterial.visible = false      
-      outlineMaterial.visible = true
-    } else {
-      material.visible = true
-      keyframeMaterial.visible = true
-      inbetweenMaterial.visible = true      
-      outlineMaterial.visible = false
-    }
-
-    camera = cameras[CAMERA_SWITCH]
-    renderer.render(scene, camera)
+    composer.render(scene, camera)
     if (MANUAL == false) {
       current_frame_index += 1
     }
