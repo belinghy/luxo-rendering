@@ -412,13 +412,20 @@ loadObjModels().then(objs => {
   scene.add(luxo.model)
 
   // Adding floor to scene
-  floor = new THREE.Mesh(
+  var floor = new THREE.Mesh(
     new THREE.BoxGeometry(2000, 1, 2000),
     new THREE.MeshToonMaterial({ color: 0x808080, dithering: true })
   )
   floor.position.set(0, -0.5, 0)
   floor.receiveShadow = true
+  var wall = new THREE.Mesh(
+    new THREE.BoxGeometry(2000, 2000, 1),
+    new THREE.MeshToonMaterial({ color: 0x808080, dithering: true })
+  )
+  wall.position.set(0, 0, -100)
+  wall.receiveShadow = true
   scene.add(floor)
+  scene.add(wall)
 
   // init camera control
   controls.forEach(control => control.update())
