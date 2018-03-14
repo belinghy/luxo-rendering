@@ -1,17 +1,50 @@
 // Some global settings
 // 0= No frames, 1= Keyframes only, 2= All frames
-var SHOW_FRAMES =2 
+var SHOW_FRAMES = 2 
 // 0= Perspective, 1= Orthographic
 var CAMERA_SWITCH = 1
 var MANUAL_PLAYBACK = false
-var SAVE_KEYFRAME_MODE = true
+var SAVE_KEYFRAME_MODE = false 
 var SHOW_OUTLINE = false
 var STATIC = true
+
+// Document
+document.addEventListener('keydown', onDocumentKeyDown, false)
+function onDocumentKeyDown(event) {
+  var keyCode = event.key
+  if (keyCode == '1') {
+    SHOW_FRAMES = (SHOW_FRAMES + 1) % 3
+  } else if (keyCode == '2') {
+    CAMERA_SWITCH = (CAMERA_SWITCH + 1) % 2
+  } else if (keyCode == 'n') {
+    AnimData.nextFrame()
+  } else if (keyCode == 'p') {
+    AnimData.prevFrame()
+  } else if (keyCode == '.') {
+    AnimData.nextSequence()
+  } else if (keyCode == ',') {
+    AnimData.prevSequence()
+  } else if (keyCode == '3') {
+    SHOW_OUTLINE = !SHOW_OUTLINE
+  } else if (keyCode == ' ') {
+    MANUAL_PLAYBACK = !MANUAL_PLAYBACK
+    console.log("Manual is" + MANUAL_PLAYBACK)
+  } else if (keyCode == 's') {
+    SAVE_KEYFRAME_MODE = !SAVE_KEYFRAME_MODE
+  }
+}
 
 var luxo
 var LuxoClass
 var AnimData
 var gui = new dat.GUI();
+
+function delay(t, v) {
+   return new Promise(function(resolve) { 
+       setTimeout(resolve.bind(null, v), t)
+   });
+}
+            
 
 var AnimDataClass = function() {
 
@@ -85,14 +118,17 @@ var AnimDataClass = function() {
     };
     this.prevSequence = function() {
         this.current_sequence = Math.max((this.current_sequence-1),0) % this.num_sequences  
-        this.current_frames = all_predictions[this.current_sequence]
-        this.current_keyframes = all_keyframes[this.current_sequence]
+        this.current_frames = this.all_predictions[this.current_sequence]
+        this.current_keyframes = this.all_keyframes[this.current_sequence]
         this.current_frame_index = 0
         this.current_keyframe_index = 0
         this.clearFrameModels()
     };
     this.atEndOfSequence = function() {
         return (this.current_frame_index == (this.sequence_length-1))
+    };
+    this.atStartOfSequence = function() {
+        return (this.current_frame_index == 0)
     };
     this.atKeyFrame = function() {
         return (this.current_frame_index == this.current_keyframes[this.current_keyframe_index - 1])
@@ -160,16 +196,22 @@ var AnimDataClass = function() {
 var material = new THREE.MeshToonMaterial({
   color: 0xabb8cc,
   transparent: false,
+  depthTest: true,
+  renderOrder: 0,
   opacity: 0.0,
 })
 var keyframeMaterial = new THREE.MeshToonMaterial({
-  color: 0xff6666,
-  transparent: true,
-  opacity: 0.5,
+  color: 0x00e11a,
+  transparent: false,
+  depthTest: false,
+  renderOrder: 1,
+  opacity: 1.0,
 })
 var inbetweenMaterial = new THREE.MeshToonMaterial({
   color: 0xabb8cc,
   transparent: true,
+  depthTest: true,
+  renderOrder: 0,
   opacity: 0.25,
 })
 var outlineMaterial = new THREE.LineBasicMaterial({
@@ -178,91 +220,80 @@ var outlineMaterial = new THREE.LineBasicMaterial({
 })
 
 var adjust = function() {
-    AnimData.setCurrentPose()
+    if (SAVE_KEYFRAME_MODE){
+        AnimData.setCurrentPose()
+        luxo_states = AnimData.getCurrentPose()
+        luxo.setState(...luxo_states)
+        renderer.render(scene, camera)
+        requestAnimationFrame(adjust)
+    } else {
+        requestAnimationFrame(animate)
+    }
+  }
+var animate = function() {
+  if (AnimData.atStartOfSequence()){
+      AnimData.clearFrameModels()
+  }
+  if (AnimData.atEndOfSequence()){
 
     luxo_states = AnimData.getCurrentPose()
     luxo.setState(...luxo_states)
+    luxo_arguments = AnimData.getDisplayColorArguments()
+    AnimData.setCurrentPose()
+    if (
+      // Show all
+      SHOW_FRAMES == 2 ||
+      // Show keyframes
+      (SHOW_FRAMES == 1 && AnimData.atKeyFrame())
+    ) {
+      AnimData.addPersistentFrame(luxo_arguments)
+      // Add to list, so we can clean later
+    }
+    camera = cameras[CAMERA_SWITCH]
     renderer.render(scene, camera)
-    requestAnimationFrame(adjust)
-}
-var animate = function() {
-  for (var i in gui.__controllers) {
-    gui.__controllers[i].updateDisplay();
-  }
-  if (AnimData.atEndOfSequence()){
-    if(STATIC){
-      adjust()
+
+    if(SAVE_KEYFRAME_MODE){
+      requestAnimationFrame(adjust)
     } else {
-      AnimData.clearFrameModels()
       requestAnimationFrame(animate)
     }
+
   } else {
-      requestAnimationFrame(animate)
-  }
-  // Spread syntax just turns array into comma separate list
-  luxo_states = AnimData.getCurrentPose()
-  luxo.setState(...luxo_states)
-  // Draw persistent keyframes
-  luxo_arguments = AnimData.getDisplayColorArguments()
-  // Javascript apparently doesn't have named arguments
-  // One way to is make constructor to take an object
-  if (
-    // Show all
-    SHOW_FRAMES == 2 ||
-    // Show keyframes
-    (SHOW_FRAMES == 1 && AnimData.atKeyFrame())
-  ) {
-    AnimData.addPersistentFrame(luxo_arguments)
-    // Add to list, so we can clean later
+    luxo_states = AnimData.getCurrentPose()
+    luxo.setState(...luxo_states)
+    luxo_arguments = AnimData.getDisplayColorArguments()
+    if (
+      // Show all
+      SHOW_FRAMES == 2 ||
+      // Show keyframes
+      (SHOW_FRAMES == 1 && AnimData.atKeyFrame())
+    ) {
+      AnimData.addPersistentFrame(luxo_arguments)
+      // Add to list, so we can clean later
+    }
+    if (SHOW_OUTLINE) {
+      material.visible = false
+      keyframeMaterial.visible = false
+      inbetweenMaterial.visible = false      
+      outlineMaterial.visible = true
+    } else {
+      material.visible = true
+      keyframeMaterial.visible = true
+      inbetweenMaterial.visible = true      
+      outlineMaterial.visible = false
+    }
+
+    camera = cameras[CAMERA_SWITCH]
+    renderer.render(scene, camera)
+    if (MANUAL_PLAYBACK == false) {
+        AnimData.nextFrame()
+    }
+    requestAnimationFrame(animate)
   }
 
-  if (SHOW_OUTLINE) {
-    material.visible = false
-    keyframeMaterial.visible = false
-    inbetweenMaterial.visible = false      
-    outlineMaterial.visible = true
-  } else {
-    material.visible = true
-    keyframeMaterial.visible = true
-    inbetweenMaterial.visible = true      
-    outlineMaterial.visible = false
-  }
-
-  camera = cameras[CAMERA_SWITCH]
-  renderer.render(scene, camera)
-  if (MANUAL_PLAYBACK == false) {
-      AnimData.nextFrame()
-  }
 }
 
 
-// Document
-document.addEventListener('keydown', onDocumentKeyDown, false)
-function onDocumentKeyDown(event) {
-  var keyCode = event.key
-  if (keyCode == '1') {
-    SHOW_FRAMES = (SHOW_FRAMES + 1) % 3
-  } else if (keyCode == '2') {
-    CAMERA_SWITCH = (CAMERA_SWITCH + 1) % 2
-  } else if (MANUAL_PLAYBACK == true && keyCode == 'n') {
-    AnimData.nextFrame()
-  } else if (MANUAL_PLAYBACK == true && keyCode == 'p') {
-    AnimData.prevFrame()
-  } else if (keyCode == '.') {
-    AnimData.nextSequence()
-    animate()
-  } else if (keyCode == ',') {
-    AnimData.prevSequence()
-    animate()
-  } else if (keyCode == '3') {
-    SHOW_OUTLINE = !SHOW_OUTLINE
-  } else if (keyCode == ' ') {
-    MANUAL_PLAYBACK = !MANUAL_PLAYBACK
-    console.log("Manual is" + MANUAL_PLAYBACK)
-  } else if (keyCode == 's') {
-    SAVE_KEYFRAME_MODE = !SAVE_KEYFRAME_MODE
-  }
-}
 
 // renderer
 var renderer = new THREE.WebGLRenderer()
@@ -606,8 +637,8 @@ loadObjModels().then(objs => {
   gui.add(AnimData,"leg_angle",-1.23,1.0).listen()
   gui.add(AnimData,"neck_angle",0.17,2.1).listen()
   gui.add(AnimData,"head_angle",-1.7,0.17).listen()
-  gui.add(AnimData,"current_frame_index",0,AnimData.getSequenceLength()).step(1).listen()
-  gui.add(AnimData,"current_keyframe_index",0,AnimData.getNumKeyframes()).step(1).listen()
+  gui.add(AnimData,"current_frame_index",0,AnimData.getSequenceLength()-1).step(1).listen()
+  gui.add(AnimData,"current_keyframe_index",0,AnimData.getNumKeyframes()-1).step(1).listen()
 
   animate()
 })
