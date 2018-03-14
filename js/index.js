@@ -16,7 +16,8 @@ var gui = new dat.GUI();
 var AnimDataClass = function() {
 
     this.num_sequences=1;
-    this.animation_length=1;
+    this.num_keyframes=1;
+    this.sequence_length=1;
 
     this.current_sequence=0;
     this.current_frame_index=0;
@@ -58,7 +59,8 @@ var AnimDataClass = function() {
           return keyframes
         })
         this.current_keyframes = this.all_keyframes[this.current_sequence]
-        this.animation_length = this.current_keyframes[this.current_keyframes.length-1]+1
+        this.num_keyframes = this.current_keyframes.length
+        this.sequence_length = this.current_keyframes[this.current_keyframes.length-1]+1
     };
 
     this.clearFrameModels = function() {
@@ -67,12 +69,11 @@ var AnimDataClass = function() {
             scene.remove(frame.model)
         }
     };
-
     this.nextFrame = function() {
-        this.current_frame_index = (this.current_frame_index + 1) % this.animation_length  
+        this.current_frame_index = (this.current_frame_index + 1) % this.sequence_length  
     };
     this.prevFrame = function() {
-        this.current_frame_index = Math.max(this.current_frame_index - 1,0) % this.animation_length  
+        this.current_frame_index = Math.max(this.current_frame_index - 1,0) % this.sequence_length  
     };
     this.nextSequence = function() {
         this.current_sequence = (this.current_sequence + 1) % this.num_sequences  
@@ -91,7 +92,7 @@ var AnimDataClass = function() {
         this.clearFrameModels()
     };
     this.atEndOfSequence = function() {
-        return (this.current_frame_index == (this.animation_length-1))
+        return (this.current_frame_index == (this.sequence_length-1))
     };
     this.atKeyFrame = function() {
         return (this.current_frame_index == this.current_keyframes[this.current_keyframe_index - 1])
@@ -107,9 +108,9 @@ var AnimDataClass = function() {
         if (SAVE_KEYFRAME_MODE){
             //this.current_frames[this.current_frame_index][0] = this.base_x 
             //this.current_frames[this.current_frame_index][0] = this.base_y 
-            //this.current_frames[this.current_frame_index][0] = this.base_ori 
-            //this.current_frames[this.current_frame_index][0] = this.leg_angle  
-            //this.current_frames[this.current_frame_index][0] = this.neck_angle 
+            this.current_frames[this.current_frame_index][2] = this.base_ori 
+            this.current_frames[this.current_frame_index][3] = this.leg_angle  
+            this.current_frames[this.current_frame_index][4] = this.neck_angle 
             this.current_frames[this.current_frame_index][5] = this.head_angle
         }
     };
@@ -144,6 +145,13 @@ var AnimDataClass = function() {
           ]
         }
         return luxo_arguments
+    };
+
+    this.getSequenceLength = function(data) {
+        return this.sequence_length
+    };
+    this.getNumKeyframes = function(data) {
+        return this.num_keyframes
     };
 }
     
@@ -594,10 +602,12 @@ loadObjModels().then(objs => {
 
   gui.add(AnimData,"base_x").listen()
   gui.add(AnimData,"base_y").listen()
-  gui.add(AnimData,"base_ori").listen()
-  gui.add(AnimData,"leg_angle").listen()
-  gui.add(AnimData,"neck_angle").listen()
+  gui.add(AnimData,"base_ori",-1.0,1.0).listen()
+  gui.add(AnimData,"leg_angle",-1.23,1.0).listen()
+  gui.add(AnimData,"neck_angle",0.17,2.1).listen()
   gui.add(AnimData,"head_angle",-1.7,0.17).listen()
+  gui.add(AnimData,"current_frame_index",0,AnimData.getSequenceLength()).step(1).listen()
+  gui.add(AnimData,"current_keyframe_index",0,AnimData.getNumKeyframes()).step(1).listen()
 
   animate()
 })
