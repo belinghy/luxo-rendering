@@ -18,12 +18,19 @@ function onDocumentKeyDown(event) {
     CAMERA_SWITCH = (CAMERA_SWITCH + 1) % 2
   } else if (keyCode == 'n') {
     AnimData.nextFrame()
+    AnimDataTarget.nextFrame()
+    if(MANUAL_PLAYBACK){
+        animate()
+    }
   } else if (keyCode == 'p') {
     AnimData.prevFrame()
+    AnimDataTarget.prevFrame()
   } else if (keyCode == '.') {
     AnimData.nextSequence()
+    AnimDataTarget.nextSequence()
   } else if (keyCode == ',') {
     AnimData.prevSequence()
+    AnimDataTarget.prevSequence()
   } else if (keyCode == '3') {
     SHOW_OUTLINE = !SHOW_OUTLINE
   } else if (keyCode == ' ') {
@@ -35,8 +42,10 @@ function onDocumentKeyDown(event) {
 }
 
 var luxo
+var luxoTarget
 var LuxoClass
 var AnimData
+var AnimDataTarget
 var gui = new dat.GUI();
 
 function delay(t, v) {
@@ -46,11 +55,17 @@ function delay(t, v) {
 }
             
 
-var AnimDataClass = function() {
+var AnimDataClass = function(is_target=false) {
 
     this.num_sequences=1;
     this.num_keyframes=1;
     this.sequence_length=1;
+    this.is_target = is_target;
+    if(this.is_target){
+        this.key_frame_material = keyframeMaterialTarget
+    } else {
+        this.key_frame_material = keyframeMaterial
+    }
 
     this.current_sequence=0;
     this.current_frame_index=0;
@@ -104,6 +119,9 @@ var AnimDataClass = function() {
     };
     this.nextFrame = function() {
         this.current_frame_index = (this.current_frame_index + 1) % this.sequence_length  
+    };
+    this.nextKeyframe = function() {
+        this.current_keyframe_index = (this.current_keyframe_index + 1) % this.num_keyframes
     };
     this.prevFrame = function() {
         this.current_frame_index = Math.max(this.current_frame_index - 1,0) % this.sequence_length  
@@ -166,13 +184,15 @@ var AnimDataClass = function() {
 
     this.getDisplayColorArguments = function () {
         var luxo_arguments
+        console.log("TARGET",this.is_target)
         if (this.current_frame_index == this.current_keyframes[this.current_keyframe_index]) {
+          console.log("here")
           luxo_arguments = [
-            keyframeMaterial,
+            this.key_frame_material,
             outlineMaterial,
             false, //castShadow,
           ]
-          this.current_keyframe_index += 1
+          this.nextKeyframe()
         } else {
           luxo_arguments = [
             inbetweenMaterial,
@@ -207,6 +227,13 @@ var keyframeMaterial = new THREE.MeshToonMaterial({
   renderOrder: 1,
   opacity: 1.0,
 })
+var keyframeMaterialTarget = new THREE.MeshToonMaterial({
+  color: 0x0069ff,
+  transparent: false,
+  depthTest: false,
+  renderOrder: 1,
+  opacity: 1.0,
+})
 var inbetweenMaterial = new THREE.MeshToonMaterial({
   color: 0xabb8cc,
   transparent: true,
@@ -222,8 +249,11 @@ var outlineMaterial = new THREE.LineBasicMaterial({
 var adjust = function() {
     if (SAVE_KEYFRAME_MODE){
         AnimData.setCurrentPose()
+        AnimDataTarget.setCurrentPose()
         luxo_states = AnimData.getCurrentPose()
         luxo.setState(...luxo_states)
+        luxoTarget_states = AnimDataTarget.getCurrentPose()
+        luxoTarget.setState(...luxoTarget_states)
         renderer.render(scene, camera)
         requestAnimationFrame(adjust)
     } else {
@@ -233,13 +263,18 @@ var adjust = function() {
 var animate = function() {
   if (AnimData.atStartOfSequence()){
       AnimData.clearFrameModels()
+      AnimDataTarget.clearFrameModels()
   }
-  if (AnimData.atEndOfSequence()){
+  luxo_states = AnimData.getCurrentPose()
+  luxoTarget_states = AnimDataTarget.getCurrentPose()
+  luxo.setState(...luxo_states)
+  luxoTarget.setState(...luxoTarget_states)
+  luxo_arguments = AnimData.getDisplayColorArguments()
+  luxoTarget_arguments = AnimDataTarget.getDisplayColorArguments()
 
-    luxo_states = AnimData.getCurrentPose()
-    luxo.setState(...luxo_states)
-    luxo_arguments = AnimData.getDisplayColorArguments()
+  if (AnimData.atEndOfSequence()){
     AnimData.setCurrentPose()
+    AnimDataTarget.setCurrentPose()
     if (
       // Show all
       SHOW_FRAMES == 2 ||
@@ -247,6 +282,7 @@ var animate = function() {
       (SHOW_FRAMES == 1 && AnimData.atKeyFrame())
     ) {
       AnimData.addPersistentFrame(luxo_arguments)
+      AnimDataTarget.addPersistentFrame(luxoTarget_arguments)
       // Add to list, so we can clean later
     }
     camera = cameras[CAMERA_SWITCH]
@@ -259,9 +295,6 @@ var animate = function() {
     }
 
   } else {
-    luxo_states = AnimData.getCurrentPose()
-    luxo.setState(...luxo_states)
-    luxo_arguments = AnimData.getDisplayColorArguments()
     if (
       // Show all
       SHOW_FRAMES == 2 ||
@@ -269,6 +302,7 @@ var animate = function() {
       (SHOW_FRAMES == 1 && AnimData.atKeyFrame())
     ) {
       AnimData.addPersistentFrame(luxo_arguments)
+      AnimDataTarget.addPersistentFrame(luxoTarget_arguments)
       // Add to list, so we can clean later
     }
     if (SHOW_OUTLINE) {
@@ -287,8 +321,9 @@ var animate = function() {
     renderer.render(scene, camera)
     if (MANUAL_PLAYBACK == false) {
         AnimData.nextFrame()
+        AnimDataTarget.nextFrame()
+        requestAnimationFrame(animate)
     }
-    requestAnimationFrame(animate)
   }
 
 }
@@ -612,6 +647,7 @@ loadObjModels().then(objs => {
   outlineMaterial.visible = false
 
   luxo = new LuxoClass(material, outlineMaterial, false)
+  luxoTarget = new LuxoClass(material, outlineMaterial, false)
   scene.add(luxo.model)
   console.log(luxo)
 
@@ -631,6 +667,10 @@ loadObjModels().then(objs => {
   AnimData.set_all_predictions(anim_data[0])
   AnimData.set_keyframes(anim_data[2])
 
+  AnimDataTarget = new AnimDataClass(is_target=true)
+  AnimDataTarget.set_all_predictions(anim_data[1])
+  AnimDataTarget.set_keyframes(anim_data[2])
+
   gui.add(AnimData,"base_x").listen()
   gui.add(AnimData,"base_y").listen()
   gui.add(AnimData,"base_ori",-1.0,1.0).listen()
@@ -639,6 +679,15 @@ loadObjModels().then(objs => {
   gui.add(AnimData,"head_angle",-1.7,0.17).listen()
   gui.add(AnimData,"current_frame_index",0,AnimData.getSequenceLength()-1).step(1).listen()
   gui.add(AnimData,"current_keyframe_index",0,AnimData.getNumKeyframes()-1).step(1).listen()
+
+  gui.add(AnimDataTarget,"base_x").listen()
+  gui.add(AnimDataTarget,"base_y").listen()
+  gui.add(AnimDataTarget,"base_ori",-1.0,1.0).listen()
+  gui.add(AnimDataTarget,"leg_angle",-1.23,1.0).listen()
+  gui.add(AnimDataTarget,"neck_angle",0.17,2.1).listen()
+  gui.add(AnimDataTarget,"head_angle",-1.7,0.17).listen()
+  gui.add(AnimDataTarget,"current_frame_index",0,AnimDataTarget.getSequenceLength()-1).step(1).listen()
+  gui.add(AnimDataTarget,"current_keyframe_index",0,AnimDataTarget.getNumKeyframes()-1).step(1).listen()
 
   animate()
 })
