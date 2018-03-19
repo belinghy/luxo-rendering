@@ -7,7 +7,9 @@ var MANUAL_PLAYBACK = false
 var SAVE_KEYFRAME_MODE = false 
 var SHOW_OUTLINE = false
 var STATIC = true
-var TX = 10 //offset display of the target anim data
+var TX = 20 //offset display of the target anim data
+var panX = -2100
+var panY = 150 
 
 // Document
 document.addEventListener('keydown', onDocumentKeyDown, false)
@@ -39,6 +41,16 @@ function onDocumentKeyDown(event) {
     console.log("Manual is" + MANUAL_PLAYBACK)
   } else if (keyCode == 's') {
     SAVE_KEYFRAME_MODE = !SAVE_KEYFRAME_MODE
+  } else if (keyCode == 'F') {
+    controls[1].pan(-panX,-panY)
+    panX = -2100
+    controls[1].pan(panX,panY)
+    controls[1].update()
+  } else if (keyCode == 'B') {
+    controls[1].pan(-panX,-panY)
+    panX = -600
+    controls[1].pan(panX,panY)
+    controls[1].update()
   }
 }
 
@@ -279,7 +291,7 @@ var animate = function() {
       // Show all
       SHOW_FRAMES == 2 ||
       // Show keyframes
-      (SHOW_FRAMES == 1 && AnimData.atKeyFrame())
+      (SHOW_FRAMES == 1 && AnimDataTarget.atKeyFrame())
     ) {
       AnimData.addPersistentFrame(luxo_arguments)
       AnimDataTarget.addPersistentFrame(luxoTarget_arguments)
@@ -381,7 +393,7 @@ var orthoCamera = new THREE.OrthographicCamera(
   1000
 )
 orthoCamera.position.set(0, 0, 10)
-orthoCamera.zoom = 30
+orthoCamera.zoom = 75
 orthoCamera.updateProjectionMatrix()
 
 var cameras = [perspectiveCamera, orthoCamera]
@@ -442,7 +454,8 @@ async function loadObjModels() {
   var anim = []
   var basepath = 'models/'
   var files = ['base4.obj', 'leg4.obj', 'neck4.obj', 'head4.obj']
-  var anim_files = ['pred.json', 'actual.json', 'key_cts.json']
+  //var anim_files = ['pred_0.json', 'actual_0.json', 'key_cts_0.json']
+  var anim_files = ['pred_2.json', 'actual_2.json', 'key_cts_2.json']
 
   manager.onProgress = function(url, itemsLoaded, itemsTotal) {
     progressBar.style.width = itemsLoaded / files.length * 100 + '%'
@@ -586,38 +599,29 @@ loadObjModels().then(objs => {
       this.head.angle = Math.PI / 2 + headAngle
 
       // Compute base object
-      this.base.x = this.trans_x + x + this.base.radius * Math.cos(this.base.angle)
-      this.base.y =
-        y + this.base.height / 2 - this.base.radius * Math.sin(this.base.angle)
-
-      // Compute torso object
-      this.torso.x =
-        this.base.x +
-        this.leg.length * Math.cos(Math.PI / 2 - this.leg.angle) +
-        this.torso.length / 2 * Math.cos(Math.PI / 2 - this.torso.angle)
-      this.torso.y =
-        this.base.y +
-        this.leg.length * Math.sin(Math.PI / 2 - this.leg.angle) +
-        this.torso.length / 2 * Math.sin(Math.PI / 2 - this.torso.angle)
-
-      // Compute head object
-      this.head.x =
-        this.torso.x +
-        this.torso.length / 2 * Math.cos(Math.PI / 2 - this.torso.angle) +
-        this.head.length / 2 * Math.cos(Math.PI / 2 - this.head.angle)
-      this.head.y =
-        this.torso.y +
-        this.torso.length / 2 * Math.sin(Math.PI / 2 - this.torso.angle) +
-        this.head.length / 2 * Math.sin(Math.PI / 2 - this.head.angle)
+      this.base.x = this.trans_x + x
+      this.base.y = y
 
       this.updateModel()
     }
 
     updateModel() {
-      this.base.model.position.x = this.base.x
-      this.base.model.position.y = this.base.y
-      // Rotation is reversed
-      this.base.model.rotation.z = -this.base.angle
+      // Leg
+      this.base.model.matrix.identity()
+
+      var t1 = new THREE.Matrix4().makeTranslation(this.base.radius/2, 0, 0)
+      //this.base.model.applyMatrix(t1)
+      var rotation = new THREE.Matrix4().makeRotationZ(-this.base.angle)
+
+      //this.base.model.applyMatrix(
+      //  new THREE.Matrix4().makeTranslation(0, this.base.x, 0)
+      //)
+      var tt = t1.multiply(rotation)
+      this.base.model.applyMatrix(tt)
+      
+      this.base.model.applyMatrix(
+        new THREE.Matrix4().makeTranslation(this.base.x,this.base.y, 0)
+      )
 
       // Leg
       this.leg.model.matrix.identity()
@@ -650,6 +654,7 @@ loadObjModels().then(objs => {
   luxo = new LuxoClass(material, outlineMaterial, false)
   luxoTarget = new LuxoClass(material, outlineMaterial, false,trans_x=TX)
   scene.add(luxo.model)
+  scene.add(luxoTarget.model)
   console.log(luxo)
 
   // Adding floor to scene
@@ -663,6 +668,8 @@ loadObjModels().then(objs => {
 
   // init camera control
   controls.forEach(control => control.update())
+  controls[1].pan(panX,panY)
+  controls[1].update()
     
   AnimData = new AnimDataClass()
   AnimData.set_all_predictions(anim_data[0])
