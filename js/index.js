@@ -7,6 +7,7 @@ var MANUAL_PLAYBACK = false
 var SAVE_KEYFRAME_MODE = false 
 var SHOW_OUTLINE = false
 var STATIC = true
+var TX = 10 //offset display of the target anim data
 
 // Document
 document.addEventListener('keydown', onDocumentKeyDown, false)
@@ -55,7 +56,7 @@ function delay(t, v) {
 }
             
 
-var AnimDataClass = function(is_target=false) {
+var AnimDataClass = function(is_target=false,trans_x=0) {
 
     this.num_sequences=1;
     this.num_keyframes=1;
@@ -66,6 +67,7 @@ var AnimDataClass = function(is_target=false) {
     } else {
         this.key_frame_material = keyframeMaterial
     }
+    this.trans_x = trans_x
 
     this.current_sequence=0;
     this.current_frame_index=0;
@@ -184,13 +186,12 @@ var AnimDataClass = function(is_target=false) {
 
     this.getDisplayColorArguments = function () {
         var luxo_arguments
-        console.log("TARGET",this.is_target)
         if (this.current_frame_index == this.current_keyframes[this.current_keyframe_index]) {
-          console.log("here")
           luxo_arguments = [
             this.key_frame_material,
             outlineMaterial,
             false, //castShadow,
+            trans_x = this.trans_x
           ]
           this.nextKeyframe()
         } else {
@@ -198,6 +199,7 @@ var AnimDataClass = function(is_target=false) {
             inbetweenMaterial,
             outlineMaterial,
             false, //castShadow,
+            trans_x = this.trans_x
           ]
         }
         return luxo_arguments
@@ -225,14 +227,12 @@ var keyframeMaterial = new THREE.MeshToonMaterial({
   transparent: false,
   depthTest: false,
   renderOrder: 1,
-  opacity: 1.0,
 })
 var keyframeMaterialTarget = new THREE.MeshToonMaterial({
   color: 0x0069ff,
   transparent: false,
   depthTest: false,
   renderOrder: 1,
-  opacity: 1.0,
 })
 var inbetweenMaterial = new THREE.MeshToonMaterial({
   color: 0xabb8cc,
@@ -497,9 +497,10 @@ loadObjModels().then(objs => {
 
   // Luxo model definition
   LuxoClass = class LuxoModel {
-    constructor(material, outlineMaterial, castShadow) {
+    constructor(material, outlineMaterial, castShadow, trans_x = 0) {
+      
       var castShadow = castShadow || true
-
+      this.trans_x = trans_x
       // cylinder: (radius, radius, height, rsegment, hsegment)
       // Base
       this.base = {}
@@ -585,7 +586,7 @@ loadObjModels().then(objs => {
       this.head.angle = Math.PI / 2 + headAngle
 
       // Compute base object
-      this.base.x = x + this.base.radius * Math.cos(this.base.angle)
+      this.base.x = this.trans_x + x + this.base.radius * Math.cos(this.base.angle)
       this.base.y =
         y + this.base.height / 2 - this.base.radius * Math.sin(this.base.angle)
 
@@ -647,7 +648,7 @@ loadObjModels().then(objs => {
   outlineMaterial.visible = false
 
   luxo = new LuxoClass(material, outlineMaterial, false)
-  luxoTarget = new LuxoClass(material, outlineMaterial, false)
+  luxoTarget = new LuxoClass(material, outlineMaterial, false,trans_x=TX)
   scene.add(luxo.model)
   console.log(luxo)
 
@@ -667,7 +668,7 @@ loadObjModels().then(objs => {
   AnimData.set_all_predictions(anim_data[0])
   AnimData.set_keyframes(anim_data[2])
 
-  AnimDataTarget = new AnimDataClass(is_target=true)
+  AnimDataTarget = new AnimDataClass(is_target=true,trans_x=TX)
   AnimDataTarget.set_all_predictions(anim_data[1])
   AnimDataTarget.set_keyframes(anim_data[2])
 
