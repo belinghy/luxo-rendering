@@ -10,6 +10,8 @@ var STATIC = true
 var TX = 20 //offset display of the target anim data
 var panX = -2100
 var panY = 150 
+var canvas
+var RECORD = false 
 
 // Document
 document.addEventListener('keydown', onDocumentKeyDown, false)
@@ -31,6 +33,7 @@ function onDocumentKeyDown(event) {
   } else if (keyCode == '.') {
     AnimData.nextSequence()
     AnimDataTarget.nextSequence()
+    capturer.capture( canvas );
   } else if (keyCode == ',') {
     AnimData.prevSequence()
     AnimDataTarget.prevSequence()
@@ -51,6 +54,15 @@ function onDocumentKeyDown(event) {
     panX = -600
     controls[1].pan(panX,panY)
     controls[1].update()
+  } else if (keyCode == 'R') {
+    if(RECORD == false){
+      console.log("start recording...")
+      capturer.start()
+    } else{
+      capturer.stop()
+      capturer.save()
+    }
+    RECORD = !RECORD
   }
 }
 
@@ -60,6 +72,8 @@ var LuxoClass
 var AnimData
 var AnimDataTarget
 var gui = new dat.GUI();
+var capturer = new CCapture( { format: 'png' } );
+//capturer.start();
 
 function delay(t, v) {
    return new Promise(function(resolve) { 
@@ -335,6 +349,9 @@ var animate = function() {
         AnimData.nextFrame()
         AnimDataTarget.nextFrame()
         requestAnimationFrame(animate)
+        if(RECORD){
+            capturer.capture(canvas)
+        }
     }
   }
 
@@ -343,7 +360,10 @@ var animate = function() {
 
 
 // renderer
-var renderer = new THREE.WebGLRenderer()
+var renderer = new THREE.WebGLRenderer({antialias: true})
+renderer.domElement.id = 'canvasID';
+document.body.appendChild(renderer.domElement);
+canvas = document.getElementById("canvasID")
 renderer.setPixelRatio(window.devicePixelRatio)
 renderer.setSize(window.innerWidth, window.innerHeight)
 renderer.shadowMap.enabled = true
