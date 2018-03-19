@@ -12,6 +12,7 @@ var panX = -2100
 var panY = 150 
 var canvas
 var RECORD = false 
+var STARTED = false
 
 // Document
 document.addEventListener('keydown', onDocumentKeyDown, false)
@@ -33,7 +34,10 @@ function onDocumentKeyDown(event) {
   } else if (keyCode == '.') {
     AnimData.nextSequence()
     AnimDataTarget.nextSequence()
-    capturer.capture( canvas );
+    if(RECORD){
+      console.log("start recording...")
+      capturer.start()
+    }
   } else if (keyCode == ',') {
     AnimData.prevSequence()
     AnimDataTarget.prevSequence()
@@ -55,14 +59,11 @@ function onDocumentKeyDown(event) {
     controls[1].pan(panX,panY)
     controls[1].update()
   } else if (keyCode == 'R') {
-    if(RECORD == false){
-      console.log("start recording...")
-      capturer.start()
-    } else{
-      capturer.stop()
-      capturer.save()
-    }
     RECORD = !RECORD
+    if(!RECORD){
+      capturer.stop()
+      STARTED=false 
+    }
   }
 }
 
@@ -313,11 +314,16 @@ var animate = function() {
     }
     camera = cameras[CAMERA_SWITCH]
     renderer.render(scene, camera)
-
     if(SAVE_KEYFRAME_MODE){
       requestAnimationFrame(adjust)
     } else {
       requestAnimationFrame(animate)
+      if(RECORD && STARTED){
+          capturer.stop()
+          capturer.save()
+          STARTED = false
+          RECORD = false
+      }
     }
 
   } else {
@@ -350,6 +356,9 @@ var animate = function() {
         AnimDataTarget.nextFrame()
         requestAnimationFrame(animate)
         if(RECORD){
+            if (!STARTED){
+                STARTED = true
+            }
             capturer.capture(canvas)
         }
     }
@@ -699,6 +708,7 @@ loadObjModels().then(objs => {
   AnimDataTarget.set_all_predictions(anim_data[1])
   AnimDataTarget.set_keyframes(anim_data[2])
 
+  gui.add(AnimData,"current_sequence").listen()
   gui.add(AnimData,"base_x").listen()
   gui.add(AnimData,"base_y").listen()
   gui.add(AnimData,"base_ori",-1.0,1.0).listen()
