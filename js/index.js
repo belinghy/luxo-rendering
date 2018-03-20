@@ -13,7 +13,8 @@ var panY = 150
 var canvas
 var RECORD = false 
 var STARTED = false
-
+var SAVE = false
+var capturer
 // Document
 document.addEventListener('keydown', onDocumentKeyDown, false)
 function onDocumentKeyDown(event) {
@@ -73,8 +74,7 @@ var LuxoClass
 var AnimData
 var AnimDataTarget
 var gui = new dat.GUI();
-var capturer = new CCapture( { format: 'png' } );
-//capturer.start();
+
 
 function delay(t, v) {
    return new Promise(function(resolve) { 
@@ -288,6 +288,7 @@ var adjust = function() {
     }
   }
 var animate = function() {
+
   if (AnimData.atStartOfSequence()){
       AnimData.clearFrameModels()
       AnimDataTarget.clearFrameModels()
@@ -317,13 +318,18 @@ var animate = function() {
     if(SAVE_KEYFRAME_MODE){
       requestAnimationFrame(adjust)
     } else {
-      requestAnimationFrame(animate)
       if(RECORD && STARTED){
-          capturer.stop()
-          capturer.save()
+          capturer.capture(canvas)
+          SAVE = true
           STARTED = false
           RECORD = false
+      } else if(SAVE) {
+        capturer.capture(canvas)
+        SAVE = false
+        capturer.stop()
+        capturer.save()
       }
+      requestAnimationFrame(animate)
     }
 
   } else {
@@ -699,7 +705,8 @@ loadObjModels().then(objs => {
   controls.forEach(control => control.update())
   controls[1].pan(panX,panY)
   controls[1].update()
-    
+  capturer = new CCapture( { format: 'png' } );
+   
   AnimData = new AnimDataClass()
   AnimData.set_all_predictions(anim_data[0])
   AnimData.set_keyframes(anim_data[2])
