@@ -143,7 +143,8 @@ var AnimDataClass = function(is_target=false,trans_x=0) {
     this.clearFrameModels = function() {
         while (this.persistentFrame_models.length > 0) {
             var frame = this.persistentFrame_models.pop()
-            scene.remove(frame.model)
+            layer.scene.remove(frame.model)
+            layerkey.scene.remove(frame.model)
         }
     };
     this.nextFrame = function() {
@@ -178,13 +179,19 @@ var AnimDataClass = function(is_target=false,trans_x=0) {
         return (this.current_frame_index == 0)
     };
     this.atKeyFrame = function() {
-        return (this.current_frame_index == this.current_keyframes[this.current_keyframe_index - 1])
+        //return (this.current_frame_index == this.current_keyframes[this.current_keyframe_index - 1])
+        return (this.current_frame_index == this.current_keyframes[this.current_keyframe_index])
     };
     this.addPersistentFrame = function(luxo_arguments) {
         var persistentFrame = new LuxoClass(...luxo_arguments)
         persistentFrame.setState(...this.current_frames[this.current_frame_index])
         this.persistentFrame_models.push(persistentFrame)
-        scene.add(persistentFrame.model)
+        if (this.atKeyFrame()){
+            layerkey.scene.add(persistentFrame.model)
+            this.nextKeyframe()
+        } else {
+            layer.scene.add(persistentFrame.model)
+        }
     };
 
     this.setCurrentPose = function() {
@@ -220,7 +227,6 @@ var AnimDataClass = function(is_target=false,trans_x=0) {
             false, //castShadow,
             trans_x = this.trans_x
           ]
-          this.nextKeyframe()
         } else {
           luxo_arguments = [
             inbetweenMaterial,
@@ -272,6 +278,9 @@ var outlineMaterial = new THREE.LineBasicMaterial({
   color: 0x000000,
   linewidth: 2,
 })
+function render() {
+    composer.render();
+}
 
 var adjust = function() {
     if (SAVE_KEYFRAME_MODE){
@@ -314,7 +323,7 @@ var animate = function() {
       // Add to list, so we can clean later
     }
     camera = cameras[CAMERA_SWITCH]
-    renderer.render(scene, camera)
+    render()
     if(SAVE_KEYFRAME_MODE){
       requestAnimationFrame(adjust)
     } else {
@@ -356,7 +365,7 @@ var animate = function() {
     }
 
     camera = cameras[CAMERA_SWITCH]
-    renderer.render(scene, camera)
+    render()
     if (MANUAL_PLAYBACK == false) {
         AnimData.nextFrame()
         AnimDataTarget.nextFrame()
@@ -385,15 +394,7 @@ renderer.shadowMap.enabled = true
 renderer.shadowMap.type = THREE.PCFSoftShadowMap
 renderer.gammaInput = true
 renderer.gammaOutput = true
-var effect = new THREE.OutlineEffect(renderer, {
-  defaultColor: new THREE.Color(0x000000),
-})
 
-// scene
-var scene = new THREE.Scene()
-scene.background = new THREE.Color(0xf0f0f0)
-var ambient = new THREE.AmbientLight(0xffffff, 0.1)
-scene.add(ambient)
 
 // lighting
 var spotLight = new THREE.SpotLight(0xffffff, 1)
@@ -407,7 +408,6 @@ spotLight.shadow.mapSize.width = 1024
 spotLight.shadow.mapSize.height = 1024
 spotLight.shadow.camera.near = 10
 spotLight.shadow.camera.far = 200
-scene.add(spotLight)
 
 // cameras
 var perspectiveCamera = new THREE.PerspectiveCamera(
@@ -430,9 +430,46 @@ var orthoCamera = new THREE.OrthographicCamera(
 orthoCamera.position.set(0, 0, 10)
 orthoCamera.zoom = 75
 orthoCamera.updateProjectionMatrix()
+class Layer {
+    
+    constructor( camera ) {
+    
+        this.scene = new THREE.Scene();
+        
+        this.renderPass = new THREE.RenderPass( this.scene, camera );
+        this.renderPass.clear = false;
+        this.renderPass.clearDepth = true;
+        this.renderPass.renderToScreen = true;
+    }
+}
 
 var cameras = [perspectiveCamera, orthoCamera]
 camera = cameras[CAMERA_SWITCH]
+
+var composer = new THREE.EffectComposer( renderer );
+// scene
+//var scene1 = new THREE.Scene()
+//scene1.background = new THREE.Color(0xf0f0f0)
+//var ambient = new THREE.AmbientLight(0xffffff, 0.1)
+//scene1.add(ambient)
+
+var scene2 = new THREE.Scene()
+scene2.background = new THREE.Color(0xf0f0f0)
+var ambient = new THREE.AmbientLight(0xffffff, 0.1)
+var ambient2 = new THREE.AmbientLight(0xffffff, 0.5)
+scene2.add(ambient)
+
+var layer = new Layer( camera );
+composer.addPass(layer.renderPass);
+layer.scene.background = new THREE.Color(0xf0f0f0)
+layer.scene.add(spotLight)
+layer.scene.add(ambient)
+
+var layerkey = new Layer( camera );
+composer.addPass(layerkey.renderPass);
+layerkey.scene.add(spotLight)
+layerkey.scene.add(ambient2)
+layer.scene.background = new THREE.Color(0xf0f0f0)
 
 // camera control
 var perspectiveControls = new THREE.OrbitControls(
@@ -688,8 +725,8 @@ loadObjModels().then(objs => {
 
   luxo = new LuxoClass(material, outlineMaterial, false)
   luxoTarget = new LuxoClass(material, outlineMaterial, false,trans_x=TX)
-  scene.add(luxo.model)
-  scene.add(luxoTarget.model)
+  layer.scene.add(luxo.model)
+  layer.scene.add(luxoTarget.model)
   console.log(luxo)
 
   // Adding floor to scene
@@ -699,7 +736,7 @@ loadObjModels().then(objs => {
   )
   floor.position.set(0, -0.5, 0)
   floor.receiveShadow = true
-  scene.add(floor)
+  layer.scene.add(floor)
 
   // init camera control
   controls.forEach(control => control.update())
