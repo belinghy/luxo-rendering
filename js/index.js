@@ -8,13 +8,14 @@ var SAVE_KEYFRAME_MODE = false
 var SHOW_OUTLINE = false
 var STATIC = true
 var TX = 20 //offset display of the target anim data
-var panX = -2100
+var panX = -2070
 var panY = 150 
 var canvas
 var RECORD = false 
 var STARTED = false
 var SAVE = false
 var capturer
+var STEEL_GRAY = 0xa9b6c9
 // Document
 document.addEventListener('keydown', onDocumentKeyDown, false)
 function onDocumentKeyDown(event) {
@@ -106,14 +107,22 @@ var AnimDataClass = function(is_target=false,trans_x=0) {
     this.neck_angle = 0.47
     this.head_angle = -0.0313
 
+    this.current_input_keys=[];
     this.current_keyframes=[];
     this.current_frames=[];
 
 
     this.all_keyframes=[];
     this.all_predictions=[];
+    this.all_input_keys=[];
 
     this.persistentFrame_models=[];
+
+    this.set_input_keys = function(data) {
+        console.log("Setting input key values")
+        this.all_input_keys = data
+        this.current_input_keys = this.all_input_keys[this.current_sequence]
+    };
 
     this.set_all_predictions = function(data) {
         console.log("Setting predictions")
@@ -136,6 +145,7 @@ var AnimDataClass = function(is_target=false,trans_x=0) {
           return keyframes
         })
         this.current_keyframes = this.all_keyframes[this.current_sequence]
+        this.current_input_keys = this.all_input_keys[this.current_sequence]
         this.num_keyframes = this.current_keyframes.length
         this.sequence_length = this.current_keyframes[this.current_keyframes.length-1]+1
     };
@@ -160,14 +170,20 @@ var AnimDataClass = function(is_target=false,trans_x=0) {
         this.current_sequence = (this.current_sequence + 1) % this.num_sequences  
         this.current_frames = this.all_predictions[this.current_sequence]
         this.current_keyframes = this.all_keyframes[this.current_sequence]
+        this.current_input_keys = this.all_input_keys[this.current_sequence]
         this.current_frame_index = 0
         this.current_keyframe_index = 0
         this.clearFrameModels()
     };
     this.prevSequence = function() {
-        this.current_sequence = Math.max((this.current_sequence-1),0) % this.num_sequences  
+        if (this.current_sequence == 0){
+            this.current_sequence = this.num_sequences-1
+        } else {
+            this.current_sequence = (this.current_sequence-1) % this.num_sequences  
+        }
         this.current_frames = this.all_predictions[this.current_sequence]
         this.current_keyframes = this.all_keyframes[this.current_sequence]
+        this.current_input_keys = this.all_input_keys[this.current_sequence]
         this.current_frame_index = 0
         this.current_keyframe_index = 0
         this.clearFrameModels()
@@ -187,7 +203,10 @@ var AnimDataClass = function(is_target=false,trans_x=0) {
         persistentFrame.setState(...this.current_frames[this.current_frame_index])
         this.persistentFrame_models.push(persistentFrame)
         if (this.atKeyFrame()){
-            layerkey.scene.add(persistentFrame.model)
+            layer.scene.add(persistentFrame.model)
+            var persistentFrameInKey = new LuxoClass(...luxo_arguments)
+            persistentFrameInKey.setState(...this.all_input_keys[this.current_keyframe_index])
+            //layerkey.scene.add(persistentFrameInKey.model)
             this.nextKeyframe()
         } else {
             layer.scene.add(persistentFrame.model)
@@ -249,26 +268,28 @@ var AnimDataClass = function(is_target=false,trans_x=0) {
   // Define render logic ...
 
 var material = new THREE.MeshToonMaterial({
-  color: 0xabb8cc,
+  color: STEEL_GRAY,
   transparent: false,
   depthTest: true,
   renderOrder: 0,
   opacity: 0.0,
 })
 var keyframeMaterial = new THREE.MeshToonMaterial({
-  color: 0x00e11a,
+  color: STEEL_GRAY,
+  //color: 0x00e11a,
   transparent: false,
-  depthTest: false,
   renderOrder: 1,
+  opacity: 0.1,
 })
 var keyframeMaterialTarget = new THREE.MeshToonMaterial({
-  color: 0x0069ff,
+  color: STEEL_GRAY,
+  //color: 0x0069ff,
   transparent: false,
-  depthTest: false,
   renderOrder: 1,
+  opacity: 0.1,
 })
 var inbetweenMaterial = new THREE.MeshToonMaterial({
-  color: 0xabb8cc,
+  color: STEEL_GRAY,
   transparent: true,
   depthTest: true,
   renderOrder: 0,
@@ -397,12 +418,12 @@ renderer.gammaOutput = true
 
 
 // lighting
-var spotLight = new THREE.SpotLight(0xffffff, 1)
-spotLight.position.set(-15, 100, 35)
+var spotLight = new THREE.SpotLight(0xffddac, 1)
+spotLight.position.set(50, -100, 0)
 spotLight.angle = Math.PI / 4
 spotLight.penumbra = 0.05
 spotLight.decay = 1
-spotLight.distance = 200
+spotLight.distance = 500
 spotLight.castShadow = true
 spotLight.shadow.mapSize.width = 1024
 spotLight.shadow.mapSize.height = 1024
@@ -428,7 +449,7 @@ var orthoCamera = new THREE.OrthographicCamera(
   1000
 )
 orthoCamera.position.set(0, 0, 10)
-orthoCamera.zoom = 75
+orthoCamera.zoom = 72
 orthoCamera.updateProjectionMatrix()
 class Layer {
     
@@ -455,21 +476,22 @@ var composer = new THREE.EffectComposer( renderer );
 
 var scene2 = new THREE.Scene()
 scene2.background = new THREE.Color(0xf0f0f0)
-var ambient = new THREE.AmbientLight(0xffffff, 0.1)
-var ambient2 = new THREE.AmbientLight(0xffffff, 0.5)
+var ambient = new THREE.AmbientLight(0xffffff, 0.05)
+var ambient2 = new THREE.AmbientLight(0xffffff, 0.2)
 scene2.add(ambient)
 
-var layer = new Layer( camera );
-composer.addPass(layer.renderPass);
-layer.scene.background = new THREE.Color(0xf0f0f0)
-layer.scene.add(spotLight)
-layer.scene.add(ambient)
 
 var layerkey = new Layer( camera );
 composer.addPass(layerkey.renderPass);
 layerkey.scene.add(spotLight)
-layerkey.scene.add(ambient2)
-layer.scene.background = new THREE.Color(0xf0f0f0)
+layerkey.scene.add(ambient)
+layerkey.scene.background = new THREE.Color(0xffffff)
+var layer = new Layer( camera );
+composer.addPass(layer.renderPass);
+layer.scene.add(spotLight)
+layer.scene.add(ambient)
+
+
 
 // camera control
 var perspectiveControls = new THREE.OrbitControls(
@@ -527,7 +549,7 @@ async function loadObjModels() {
   var basepath = 'models/'
   var files = ['base4.obj', 'leg4.obj', 'neck4.obj', 'head4.obj']
   //var anim_files = ['pred_0.json', 'actual_0.json', 'key_cts_0.json']
-  var anim_files = ['pred_2.json', 'actual_2.json', 'key_cts_2.json']
+  var anim_files = ['pred_4.json', 'actual_4.json', 'key_cts_4.json', 'in_keys_4.json']
 
   manager.onProgress = function(url, itemsLoaded, itemsTotal) {
     progressBar.style.width = itemsLoaded / files.length * 100 + '%'
@@ -731,10 +753,10 @@ loadObjModels().then(objs => {
 
   // Adding floor to scene
   var floor = new THREE.Mesh(
-    new THREE.BoxGeometry(2000, 1, 2000),
-    new THREE.MeshToonMaterial({ color: 0x808080, dithering: true })
+    new THREE.BoxGeometry(2000, 6, 2000),
+    new THREE.MeshToonMaterial({ color: 0x999999, dithering: true })
   )
-  floor.position.set(0, -0.5, 0)
+  floor.position.set(0, -3.02, 0)
   floor.receiveShadow = true
   layer.scene.add(floor)
 
@@ -747,10 +769,12 @@ loadObjModels().then(objs => {
   AnimData = new AnimDataClass()
   AnimData.set_all_predictions(anim_data[0])
   AnimData.set_keyframes(anim_data[2])
+  AnimData.set_input_keys(anim_data[3])
 
   AnimDataTarget = new AnimDataClass(is_target=true,trans_x=TX)
   AnimDataTarget.set_all_predictions(anim_data[1])
   AnimDataTarget.set_keyframes(anim_data[2])
+  AnimDataTarget.set_input_keys(anim_data[3])
 
   gui.add(AnimData,"current_sequence").listen()
   gui.add(AnimData,"base_x").listen()
