@@ -3,7 +3,7 @@
 var SHOW_FRAMES = 2 
 // 0= Perspective, 1= Orthographic
 var CAMERA_SWITCH = 1
-var MANUAL_PLAYBACK = false
+var MANUAL_PLAYBACK = false 
 var SAVE_KEYFRAME_MODE = false 
 var SHOW_OUTLINE = false
 var STATIC = true
@@ -36,6 +36,9 @@ function onDocumentKeyDown(event) {
   } else if (keyCode == '.') {
     AnimData.nextSequence()
     AnimDataTarget.nextSequence()
+    if(MANUAL_PLAYBACK){
+        animate()
+    }
     if(RECORD){
       console.log("start recording...")
       capturer.start()
@@ -55,11 +58,17 @@ function onDocumentKeyDown(event) {
     panX = -2100
     controls[1].pan(panX,panY)
     controls[1].update()
+    if(MANUAL_PLAYBACK){
+        animate()
+    }
   } else if (keyCode == 'B') {
     controls[1].pan(-panX,-panY)
     panX = -600
     controls[1].pan(panX,panY)
     controls[1].update()
+    if(MANUAL_PLAYBACK){
+        animate()
+    }
   } else if (keyCode == 'R') {
     RECORD = !RECORD
     if(!RECORD){
@@ -145,7 +154,6 @@ var AnimDataClass = function(is_target=false,trans_x=0) {
           return keyframes
         })
         this.current_keyframes = this.all_keyframes[this.current_sequence]
-        this.current_input_keys = this.all_input_keys[this.current_sequence]
         this.num_keyframes = this.current_keyframes.length
         this.sequence_length = this.current_keyframes[this.current_keyframes.length-1]+1
     };
@@ -205,8 +213,8 @@ var AnimDataClass = function(is_target=false,trans_x=0) {
         if (this.atKeyFrame()){
             layer.scene.add(persistentFrame.model)
             var persistentFrameInKey = new LuxoClass(...luxo_arguments)
-            persistentFrameInKey.setState(...this.all_input_keys[this.current_keyframe_index])
-            //layerkey.scene.add(persistentFrameInKey.model)
+            persistentFrameInKey.setState(...this.current_input_keys[this.current_keyframe_index])
+            layerkey.scene.add(persistentFrameInKey.model)
             this.nextKeyframe()
         } else {
             layer.scene.add(persistentFrame.model)
@@ -300,7 +308,8 @@ var outlineMaterial = new THREE.LineBasicMaterial({
   linewidth: 2,
 })
 function render() {
-    composer.render();
+    layer.composer.render();
+    layerkey.composer.render();
 }
 
 var adjust = function() {
@@ -460,7 +469,6 @@ class Layer {
         this.renderPass = new THREE.RenderPass( this.scene, camera );
         this.renderPass.clear = false;
         this.renderPass.clearDepth = true;
-        this.renderPass.renderToScreen = true;
     }
 }
 
@@ -481,15 +489,26 @@ var ambient2 = new THREE.AmbientLight(0xffffff, 0.2)
 scene2.add(ambient)
 
 
-var layerkey = new Layer( camera );
-composer.addPass(layerkey.renderPass);
-layerkey.scene.add(spotLight)
-layerkey.scene.add(ambient)
-layerkey.scene.background = new THREE.Color(0xffffff)
+
 var layer = new Layer( camera );
-composer.addPass(layer.renderPass);
 layer.scene.add(spotLight)
 layer.scene.add(ambient)
+layer.scene.background = new THREE.Color(0xffffff)
+layer.composer = new THREE.EffectComposer( renderer);
+layer.composer.addPass(layer.renderPass);
+layer.composer.addPass( new THREE.ShaderPass( THREE.CopyShader ));
+
+var layerkey = new Layer(camera);
+layerkey.scene.add(spotLight)
+layerkey.scene.add(ambient)
+layerkey.blendPass = new THREE.ShaderPass(THREE.AdditiveBlendShader);
+layerkey.blendPass.uniforms.tAdd.value = layer.composer.renderTarget2.texture;
+
+layerkey.composer = new THREE.EffectComposer( renderer);
+layerkey.composer.addPass( layerkey.renderPass );
+layerkey.composer.addPass( layerkey.blendPass );
+layerkey.blendPass.renderToScreen = true;
+
 
 
 
@@ -549,7 +568,7 @@ async function loadObjModels() {
   var basepath = 'models/'
   var files = ['base4.obj', 'leg4.obj', 'neck4.obj', 'head4.obj']
   //var anim_files = ['pred_0.json', 'actual_0.json', 'key_cts_0.json']
-  var anim_files = ['pred_4.json', 'actual_4.json', 'key_cts_4.json', 'in_keys_4.json']
+  var anim_files = ['pred_5.json', 'actual_5.json', 'key_cts_5.json', 'pred_key_cts_5.json','in_keys_5.json']
 
   manager.onProgress = function(url, itemsLoaded, itemsTotal) {
     progressBar.style.width = itemsLoaded / files.length * 100 + '%'
@@ -768,13 +787,13 @@ loadObjModels().then(objs => {
    
   AnimData = new AnimDataClass()
   AnimData.set_all_predictions(anim_data[0])
-  AnimData.set_keyframes(anim_data[2])
-  AnimData.set_input_keys(anim_data[3])
+  AnimData.set_keyframes(anim_data[3])
+  AnimData.set_input_keys(anim_data[4])
 
   AnimDataTarget = new AnimDataClass(is_target=true,trans_x=TX)
   AnimDataTarget.set_all_predictions(anim_data[1])
   AnimDataTarget.set_keyframes(anim_data[2])
-  AnimDataTarget.set_input_keys(anim_data[3])
+  AnimDataTarget.set_input_keys(anim_data[4])
 
   gui.add(AnimData,"current_sequence").listen()
   gui.add(AnimData,"base_x").listen()
