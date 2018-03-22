@@ -212,9 +212,16 @@ var AnimDataClass = function(is_target=false,trans_x=0) {
         this.persistentFrame_models.push(persistentFrame)
         if (this.atKeyFrame()){
             layer.scene.add(persistentFrame.model)
-            var persistentFrameInKey = new LuxoClass(...luxo_arguments)
+            in_luxo_arguments = [
+              keyframeInMaterial,
+              outlineMaterial,
+              false, //castShadow,
+              trans_x = this.trans_x
+            ]
+            var persistentFrameInKey = new LuxoClass(...in_luxo_arguments)
             persistentFrameInKey.setState(...this.current_input_keys[this.current_keyframe_index])
             layerkey.scene.add(persistentFrameInKey.model)
+            this.persistentFrame_models.push(persistentFrameInKey)
             this.nextKeyframe()
         } else {
             layer.scene.add(persistentFrame.model)
@@ -282,9 +289,15 @@ var material = new THREE.MeshToonMaterial({
   renderOrder: 0,
   opacity: 0.0,
 })
+var keyframeInMaterial = new THREE.MeshToonMaterial({
+  color: 0x00e11a,
+  transparent: true,
+  renderOrder: 1,
+  opacity: 0.5,
+})
 var keyframeMaterial = new THREE.MeshToonMaterial({
-  color: STEEL_GRAY,
-  //color: 0x00e11a,
+  //color: STEEL_GRAY,
+  color: 0x0069ff,
   transparent: false,
   renderOrder: 1,
   opacity: 0.1,
@@ -308,6 +321,9 @@ var outlineMaterial = new THREE.LineBasicMaterial({
   linewidth: 2,
 })
 function render() {
+    renderer.setClearColor(0xffffaa, 1);
+    renderer.autoClear = false;
+    renderer.clear();
     layer.composer.render();
     layerkey.composer.render();
 }
@@ -439,6 +455,18 @@ spotLight.shadow.mapSize.height = 1024
 spotLight.shadow.camera.near = 10
 spotLight.shadow.camera.far = 200
 
+var spotLight2 = new THREE.SpotLight(0xffddac, 1)
+spotLight2.position.set(50, -100, 0)
+spotLight2.angle = Math.PI / 4
+spotLight2.penumbra = 0.05
+spotLight2.decay = 1
+spotLight2.distance = 500
+spotLight2.castShadow = true
+spotLight2.shadow.mapSize.width = 1024
+spotLight2.shadow.mapSize.height = 1024
+spotLight2.shadow.camera.near = 10
+spotLight2.shadow.camera.far = 200
+
 // cameras
 var perspectiveCamera = new THREE.PerspectiveCamera(
   75,
@@ -475,7 +503,6 @@ class Layer {
 var cameras = [perspectiveCamera, orthoCamera]
 camera = cameras[CAMERA_SWITCH]
 
-var composer = new THREE.EffectComposer( renderer );
 // scene
 //var scene1 = new THREE.Scene()
 //scene1.background = new THREE.Color(0xf0f0f0)
@@ -491,24 +518,34 @@ scene2.add(ambient)
 
 
 var layer = new Layer( camera );
+layer.renderPass.clearColor = 0xffffff;
+layer.renderPass.clearAlpha = 0;
+layer.outPass = new THREE.ShaderPass(THREE.CopyShader);
+layer.outPass.renderToScreen = true;
+layer.composer = new THREE.EffectComposer( renderer );
+layer.composer.addPass(layer.renderPass);
+layer.composer.addPass(layer.outPass);
 layer.scene.add(spotLight)
 layer.scene.add(ambient)
-layer.scene.background = new THREE.Color(0xffffff)
-layer.composer = new THREE.EffectComposer( renderer);
-layer.composer.addPass(layer.renderPass);
-layer.composer.addPass( new THREE.ShaderPass( THREE.CopyShader ));
+layer.scene.background = new THREE.Color(0xf0f0f0)
 
 var layerkey = new Layer(camera);
-layerkey.scene.add(spotLight)
+layerkey.scene.add(spotLight2)
 layerkey.scene.add(ambient)
-layerkey.blendPass = new THREE.ShaderPass(THREE.AdditiveBlendShader);
-layerkey.blendPass.uniforms.tAdd.value = layer.composer.renderTarget2.texture;
-
 layerkey.composer = new THREE.EffectComposer( renderer);
 layerkey.composer.addPass( layerkey.renderPass );
-layerkey.composer.addPass( layerkey.blendPass );
-layerkey.blendPass.renderToScreen = true;
+layerkey.renderPass.clearColor = 0xffffff;
+layerkey.renderPass.clearAlpha = 0;
+layerkey.renderPass.renderToScreen = true;
+//layerkey.shaderPass = new THREE.ShaderPass( THREE.CopyShader )
+//layerkey.composer.addPass( layerkey.shaderPass );
+//layerkey.shaderPass.material.transparent = true;
+//layerkey.shaderPass.material.blending = THREE.CustomBlending;
 
+//var layerkey = new Layer( camera );
+//composer.addPass(layerkey.renderPass);
+//layerkey.scene.add(spotLight)
+//layerkey.scene.add(ambient)
 
 
 
