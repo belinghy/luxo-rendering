@@ -16,6 +16,7 @@ var STARTED = false
 var SAVE = false
 var capturer
 var STEEL_GRAY = 0xa9b6c9
+var DARK_GRAY = 0x99a9bf
 // Document
 document.addEventListener('keydown', onDocumentKeyDown, false)
 function onDocumentKeyDown(event) {
@@ -211,17 +212,17 @@ var AnimDataClass = function(is_target=false,trans_x=0) {
         persistentFrame.setState(...this.current_frames[this.current_frame_index])
         this.persistentFrame_models.push(persistentFrame)
         if (this.atKeyFrame()){
-            layerkey.scene.add(persistentFrame.model)
-            //in_luxo_arguments = [
-            //  keyframeInMaterial,
-            //  outlineMaterial,
-            //  false, //castShadow,
-            //  trans_x = this.trans_x
-            //]
-            //var persistentFrameInKey = new LuxoClass(...in_luxo_arguments)
-            //persistentFrameInKey.setState(...this.current_input_keys[this.current_keyframe_index])
-            //layerkey.scene.add(persistentFrameInKey.model)
-            //this.persistentFrame_models.push(persistentFrameInKey)
+            layer.scene.add(persistentFrame.model)
+            in_luxo_arguments = [
+              keyframeInMaterial,
+              outlineMaterial,
+              false, //castShadow,
+              trans_x = this.trans_x
+            ]
+            var persistentFrameInKey = new LuxoClass(...in_luxo_arguments)
+            persistentFrameInKey.setState(...this.current_input_keys[this.current_keyframe_index])
+            layerkey.scene.add(persistentFrameInKey.model)
+            this.persistentFrame_models.push(persistentFrameInKey)
             this.nextKeyframe()
         } else {
             layer.scene.add(persistentFrame.model)
@@ -290,17 +291,18 @@ var material = new THREE.MeshToonMaterial({
   opacity: 0.0,
 })
 var keyframeInMaterial = new THREE.MeshToonMaterial({
-  color: 0x00e11a,
+  color: 0x00b1af,
+  //color: STEEL_GRAY,
   transparent: true,
   renderOrder: 1,
   opacity: 0.5,
 })
 var keyframeMaterial = new THREE.MeshToonMaterial({
   color: STEEL_GRAY,
-  //color: 0x0069ff,
+  //color: 0x00b1af,
   transparent: false,
   renderOrder: 1,
-  opacity: 0.1,
+  opacity: 0.5,
 })
 var keyframeMaterialTarget = new THREE.MeshToonMaterial({
   color: STEEL_GRAY,
@@ -605,7 +607,7 @@ async function loadObjModels() {
   var basepath = 'models/'
   var files = ['base4.obj', 'leg4.obj', 'neck4.obj', 'head4.obj']
   //var anim_files = ['pred_0.json', 'actual_0.json', 'key_cts_0.json']
-  var anim_files = ['pred_6.json', 'actual_6.json', 'key_cts_6.json', 'pred_key_cts_6.json','in_keys_6.json']
+  var anim_files = ['pred_7.json', 'actual_7.json', 'key_cts_7.json', 'pred_key_cts_7.json','in_keys_7.json']
 
   manager.onProgress = function(url, itemsLoaded, itemsTotal) {
     progressBar.style.width = itemsLoaded / files.length * 100 + '%'
@@ -810,11 +812,11 @@ loadObjModels().then(objs => {
   // Adding floor to scene
   var floor = new THREE.Mesh(
     new THREE.BoxGeometry(2000, 6, 2000),
-    new THREE.MeshToonMaterial({ color: 0x999999, dithering: true })
+    new THREE.MeshToonMaterial({ color: STEEL_GRAY, dithering: true })
   )
   floor.position.set(0, -3.02, 0)
   floor.receiveShadow = true
-  layer.scene.add(floor)
+  layerkey.scene.add(floor)
 
   // init camera control
   controls.forEach(control => control.update())
